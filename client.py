@@ -47,19 +47,24 @@ class Client:
         self.test_data = test_data
         self.gt_item = gt_item
         self.model = model
+        self.train_data = train_data
         self.loader = DataLoader(train_data)
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.device = device
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+
+    def initialize_dataloader(self):
+        self.loader = DataLoader(self.train_data)
 
     def train_batch(self, x, y, optimizer):
         y_ = self.model(x)
         mask = (y > 0).float()
-        loss = torch.nn.functional.mse_loss(y_ * mask, y)
+        loss = torch.nn.functional.mse_loss(y_ * mask, y)  # only calculate loss for positive samples
         loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return loss.item(), y_.detach()
 
     def train(self, optimizer, epochs=None, return_progress=False):
@@ -82,6 +87,7 @@ class Client:
                 prev_steps = steps
                 steps = 0
                 epoch += 1
+                self.initialize_dataloader()
                 x, y = self.loader.get_batch(self.batch_size)
             x, y = x.int(), y.float()
             x, y = x.to(self.device), y.to(self.device)
