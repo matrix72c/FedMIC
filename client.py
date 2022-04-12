@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+import torch.nn.functional as F
 from evaluate import compute_metrics
 
 
@@ -68,6 +68,7 @@ class Client:
         progress = {"epoch": [], "loss": [], "hit_ratio@10": [], "ndcg@10": []}
         running_loss, running_hr, running_ndcg = 0, 0, 0
         prev_running_loss, prev_running_hr, prev_running_ndcg = 0, 0, 0
+        results = {}
         if epochs is None:
             epochs = self.epochs
         steps, prev_steps, prev_epoch = 0, 0, 0
@@ -103,9 +104,9 @@ class Client:
                 progress["hit_ratio@10"].append(results["hit_ratio@10"])
                 progress["ndcg@10"].append(results["ndcg@10"])
                 prev_epoch += 1
-        results = {"num_users": self.ui_matrix.shape[0]}
-        results.update({i: results[i] for i in ["loss", "hit_ratio@10", "ndcg@10"]})
+        r_results = {"num_users": self.ui_matrix.shape[0]}
+        r_results.update({i: results[i] for i in ["loss", "hit_ratio@10", "ndcg@10"]})
         if return_progress:
-            return results, progress
+            return r_results, progress
         else:
-            return results
+            return r_results
