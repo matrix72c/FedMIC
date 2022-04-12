@@ -3,14 +3,11 @@ import torch
 
 
 class NCFModel(nn.Module):
-    def __init__(self, user_num, item_num, predictive_factor=32, epochs=10, batch_size=128, learning_rate=5e-4):
+    def __init__(self, user_num, item_num, predictive_factor=32):
         super(NCFModel, self).__init__()
         self.user_num = user_num
         self.item_num = item_num
         self.predictive_factor = predictive_factor
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
         self.mlp_user_embeddings = torch.nn.Embedding(num_embeddings=user_num, embedding_dim=2 * predictive_factor)
         self.mlp_item_embeddings = torch.nn.Embedding(num_embeddings=item_num, embedding_dim=2 * predictive_factor)
         self.gmf_user_embeddings = torch.nn.Embedding(num_embeddings=user_num, embedding_dim=2 * predictive_factor)

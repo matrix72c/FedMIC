@@ -5,9 +5,10 @@ from evaluate import compute_metrics
 
 
 class DataLoader:
-    def __init__(self, ui_matrix, default=None, seed=0):
-        self.positives = ui_matrix[0]
-        self.negatives = ui_matrix[1]
+    def __init__(self, train_data, default=None, seed=0):
+        self.positives = train_data[0]
+        self.negatives = train_data[1]
+        self.ui_matrix = train_data[2]
         if default is None:
             self.default = np.array([[0, 0]]), np.array([0])
         else:
@@ -40,12 +41,17 @@ class DataLoader:
 
 
 class Client:
-    def __init__(self, train_data, test_data, gt_item, model):
-        self.train_data = train_data
+    def __init__(self, train_data, test_data, gt_item, model, epochs=10, batch_size=128, learning_rate=5e-4,
+                 device="cuda"):
+        self.ui_matrix = train_data[2]
         self.test_data = test_data
         self.gt_item = gt_item
         self.model = model
         self.loader = DataLoader(train_data)
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.device = device
 
     def train_batch(self, x, y, optimizer):
         y_ = self.model(x)
@@ -75,7 +81,6 @@ class Client:
                 prev_steps = steps
                 steps = 0
                 epoch += 1
-                self.initialize_loader()
                 x, y = self.loader.get_batch(self.batch_size)
             x, y = x.int(), y.float()
             x, y = x.to(self.device), y.to(self.device)

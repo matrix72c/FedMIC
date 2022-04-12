@@ -71,7 +71,7 @@ def split_train_data(ui_matrix, user_num, item_num):
         client_data = ui_matrix[i: i + 1]
         postives = np.argwhere(client_data > 0)
         negatives = np.argwhere(client_data == 0)
-        clients_train_data.append([postives, negatives])
+        clients_train_data.append([postives, negatives, ui_matrix[i:i + 1]])
     t2 = time()
     print("Distribute the train data time: [%.1f s]" % (t2 - t1))
     return clients_train_data
@@ -83,8 +83,8 @@ def get_clients(clients_train_data, clients_test_data, user_num, item_num):
     """
     client_list = []
     for i in range(len(clients_train_data)):
-        model = NCFModel(user_num, item_num, predictive_factor=32, epochs=10, batch_size=128, learning_rate=5e-4)
-        c = Client(clients_train_data[i], clients_test_data[i][0], clients_test_data[i][1], model)
+        model = NCFModel(user_num, item_num, predictive_factor=32)
+        c = Client(clients_train_data[i], clients_test_data[i][0], clients_test_data[i][1], model, epochs=10, batch_size=128, learning_rate=5e-4)
         client_list.append(c)
     return client_list
 
