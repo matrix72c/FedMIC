@@ -1,13 +1,10 @@
 from time import time
+
 import numpy as np
 
 from client import Client
-from model import NCFModel
+from config import Config
 from server import Server
-
-config = {
-    "predictive_factor"
-}
 
 
 def load_file(file_path):
@@ -24,7 +21,7 @@ def load_file(file_path):
 
 def parse_train_data(lines):
     """
-    Parses the training data and returns a matrix.
+    Parses the training data: data[user_id] = [[[user_id, item_id_0], [user_id, item_id_1], ...], [rate0, rate1, ...]].
     """
     t1 = time()
     data_list = []
@@ -38,12 +35,20 @@ def parse_train_data(lines):
         item_num = max(item_id + 1, item_num)
         rate = int(tmp_list[2])
         data_list.append([user_id, item_id, rate])
-    ui_matrix = np.zeros((user_num, item_num))
-    for data in data_list:
-        ui_matrix[data[0], data[1]] = data[2]
+    mat = np.zeros((user_num, item_num))
+    d = [[[], []] for _ in range(user_num)]
+    for user_id, item_id, rate in data_list:
+        d[user_id][0].append([user_id, item_id])
+        d[user_id][1].append(rate)
+        mat[user_id, item_id] = rate
+    for user_id in range(user_num):
+        for item_id in range(item_num):
+            if mat[user_id, item_id] == 0:
+                d[user_id][0].append([user_id, item_id])
+                d[user_id][1].append(0)
     t2 = time()
     print("Parsed training data time: [%.1f s]" % (t2 - t1))
-    return ui_matrix, user_num, item_num
+    return d, user_num, item_num
 
 
 def parse_test_data(lines):
@@ -51,6 +56,7 @@ def parse_test_data(lines):
     Parses the test data and returns a matrix.
     """
     test_list = [[] for _ in range(len(lines))]
+    ret_test = []
     for line in lines:
         tmp_str_list = line.split("\t")
         user_str, item_str = tmp_str_list[0][1:-1].split(",")
@@ -59,47 +65,34 @@ def parse_test_data(lines):
         gt_item = int(item_str)
         item_list.append(gt_item)
         test_list[user] = [item_list, gt_item]
-    return test_list
+    for i in range(len(test_list)):
+        tmp = []
+        for j in range(len(test_list[i][0])):
+            tmp.append([i, test_list[i][0][j]])
+        ret_test.append([tmp, test_list[i][1]])
+
+    return ret_test
 
 
-def split_train_data(ui_matrix, user_num, item_num):
-    """
-    Split the train data.
-    """
-    t1 = time()
-    clients_train_data = []
-    for i in range(user_num):
-        client_data = ui_matrix[i: i + 1]
-        postives = np.argwhere(client_data > 0)
-        negatives = np.argwhere(client_data == 0)
-        clients_train_data.append([postives, negatives, ui_matrix[i:i + 1]])
-    t2 = time()
-    print("Distribute the train data time: [%.1f s]" % (t2 - t1))
-    return clients_train_data
-
-
-def get_clients(clients_train_data, clients_test_data, user_num, item_num):
+def get_clients(train_data, test_data, user_num, item_num):
     """
     Distribute the train data and test data to clients.
     """
     client_list = []
-    for i in range(len(clients_train_data)):
-        model = NCFModel(user_num, item_num, predictive_factor=32)
-        c = Client(clients_train_data[i], clients_test_data[i][0], clients_test_data[i][1], model, epochs=10, batch_size=128, learning_rate=5e-4)
+    for i in range(len(train_data)):
+        c = Client(train_data[i], test_data[i], user_num, item_num)
         client_list.append(c)
     return client_list
 
 
 def main():
-    train_data_path = "data/ml-100k.rating"
-    test_data_path = "data/ml-100k.test.negative"
-    train_lines = load_file(train_data_path)
-    test_lines = load_file(test_data_path)
+
+    train_lines = load_file(Config.train_data_path)
+    test_lines = load_file(Config.test_data_path)
     train_data, user_num, item_num = parse_train_data(train_lines)
-    clients_train_data = split_train_data(train_data, user_num, item_num)
-    clients_test_data = parse_test_data(test_lines)
-    client_list = get_clients(clients_train_data, clients_test_data, user_num, item_num)
-    server = Server(client_list, user_num, item_num, clients_test_data, latent_dim=32, rounds=200)
+    test_data = parse_test_data(test_lines)
+    client_list = get_clients(train_data, test_data, user_num, item_num)
+    server = Server(client_list, user_num, item_num)
     server.run()
 
 
