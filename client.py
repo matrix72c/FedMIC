@@ -58,7 +58,7 @@ class Client:
     def initialize_dataloader(self):
         self.loader = DataLoader(self.train_data)
 
-    def train_batch(self, x, y, optimizer):
+    def train_batch(self, x, y):
         y_ = self.model(x)
         mask = (y > 0).float()
         loss = torch.nn.functional.mse_loss(y_ * mask, y)  # only calculate loss for positive samples
@@ -67,7 +67,7 @@ class Client:
         self.optimizer.zero_grad()
         return loss.item(), y_.detach()
 
-    def train(self, optimizer, epochs=None, return_progress=False):
+    def train(self, epochs=None, return_progress=False):
         self.model.join_output_weights()
         epoch = 0
         progress = {"epoch": [], "loss": [], "hit_ratio@10": [], "ndcg@10": []}
@@ -91,11 +91,8 @@ class Client:
                 x, y = self.loader.get_batch(self.batch_size)
             x, y = x.int(), y.float()
             x, y = x.to(self.device), y.to(self.device)
-            loss, y_ = self.train_batch(x, y, optimizer)
-            hr, ndcg = compute_metrics(y.cpu().numpy(), y_.cpu().numpy())
+            loss, y_ = self.train_batch(x, y)
             running_loss += loss
-            running_hr += hr
-            running_ndcg += ndcg
             if epoch != 0 and steps == 0:
                 results = {"epoch": prev_epoch, "loss": prev_running_loss / (prev_steps + 1),
                            "hit_ratio@10": prev_running_hr / (prev_steps + 1),
@@ -107,11 +104,9 @@ class Client:
             if prev_epoch != epoch:
                 progress["epoch"].append(results["epoch"])
                 progress["loss"].append(results["loss"])
-                progress["hit_ratio@10"].append(results["hit_ratio@10"])
-                progress["ndcg@10"].append(results["ndcg@10"])
                 prev_epoch += 1
         r_results = {"num_users": self.ui_matrix.shape[0]}
-        r_results.update({i: results[i] for i in ["loss", "hit_ratio@10", "ndcg@10"]})
+        r_results.update({i: results[i] for i in ["loss"]})
         if return_progress:
             return r_results, progress
         else:

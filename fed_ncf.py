@@ -99,7 +99,7 @@ def main():
     clients_train_data = split_train_data(train_data, user_num, item_num)
     clients_test_data = parse_test_data(test_lines)
     client_list = get_clients(clients_train_data, clients_test_data, user_num, item_num)
-    server = Server(client_list, user_num, item_num, latent_dim=32, rounds=200)
+    server = Server(client_list, user_num, item_num, clients_test_data, latent_dim=32, rounds=200)
     server.run()
 
 
