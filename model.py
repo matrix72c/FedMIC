@@ -1,124 +1,74 @@
 import torch.nn as nn
 import torch
+from utils import Config
 
 
 class NCFModel(nn.Module):
-    def __init__(self, user_num, item_num, predictive_factor=32):
+    def __init__(self, user_num, item_num, factor_num=Config.factor_num, num_layers=Config.num_layers, dropout=Config.dropout, model=Config.model):
         super(NCFModel, self).__init__()
-        self.user_num = user_num
-        self.item_num = item_num
-        self.predictive_factor = predictive_factor
-        self.mlp_user_embeddings = torch.nn.Embedding(num_embeddings=user_num, embedding_dim=2 * predictive_factor)
-        self.mlp_item_embeddings = torch.nn.Embedding(num_embeddings=item_num, embedding_dim=2 * predictive_factor)
-        self.gmf_user_embeddings = torch.nn.Embedding(num_embeddings=user_num, embedding_dim=2 * predictive_factor)
-        self.gmf_item_embeddings = torch.nn.Embedding(num_embeddings=item_num, embedding_dim=2 * predictive_factor)
-        self.mlp = torch.nn.Sequential(torch.nn.Linear(4 * predictive_factor, 2 * predictive_factor),
-                                       torch.nn.ReLU(),
-                                       torch.nn.Linear(2 * predictive_factor, predictive_factor),
-                                       torch.nn.ReLU(),
-                                       torch.nn.Linear(predictive_factor, predictive_factor // 2),
-                                       torch.nn.ReLU()
-                                       )
-        self.gmf_out = torch.nn.Linear(2 * predictive_factor, 1)
-        self.gmf_out.weight = torch.nn.Parameter(torch.ones(1, 2 * predictive_factor))
-        self.mlp_out = torch.nn.Linear(predictive_factor // 2, 1)
-        self.output_logits = torch.nn.Linear(predictive_factor, 1)
-        self.model_blending = 0.5  # alpha parameter, equation 13 in the paper
-        self.initialize_weights()
-        self.join_output_weights()
+        self.dropout = dropout
+        self.model = model
 
-    def initialize_weights(self):
-        torch.nn.init.normal_(self.mlp_user_embeddings.weight, std=0.01)
-        torch.nn.init.normal_(self.mlp_item_embeddings.weight, std=0.01)
-        torch.nn.init.normal_(self.gmf_user_embeddings.weight, std=0.01)
-        torch.nn.init.normal_(self.gmf_item_embeddings.weight, std=0.01)
-        for layer in self.mlp:
-            if isinstance(layer, torch.nn.Linear):
-                torch.nn.init.xavier_uniform_(layer.weight)
-        torch.nn.init.kaiming_uniform_(self.gmf_out.weight, a=1)
-        torch.nn.init.kaiming_uniform_(self.mlp_out.weight, a=1)
+        self.embed_user_GMF = nn.Embedding(user_num, factor_num)
+        self.embed_item_GMF = nn.Embedding(item_num, factor_num)
+        self.embed_user_MLP = nn.Embedding(
+            user_num, factor_num * (2 ** (num_layers - 1)))
+        self.embed_item_MLP = nn.Embedding(
+            item_num, factor_num * (2 ** (num_layers - 1)))
+
+        MLP_modules = []
+        for i in range(num_layers):
+            input_size = factor_num * (2 ** (num_layers - i))
+            MLP_modules.append(nn.Dropout(p=self.dropout))
+            MLP_modules.append(nn.Linear(input_size, input_size // 2))
+            MLP_modules.append(nn.ReLU())
+        self.MLP_layers = nn.Sequential(*MLP_modules)
+
+        if self.model in ['MLP', 'GMF']:
+            predict_size = factor_num
+        else:
+            predict_size = factor_num * 2
+        self.predict_layer = nn.Linear(predict_size, 1)
+
+        self._init_weight_()
+
+    def _init_weight_(self):
+        """ We leave the weights initialization here. """
+
+        nn.init.normal_(self.embed_user_GMF.weight, std=0.01)
+        nn.init.normal_(self.embed_user_MLP.weight, std=0.01)
+        nn.init.normal_(self.embed_item_GMF.weight, std=0.01)
+        nn.init.normal_(self.embed_item_MLP.weight, std=0.01)
+
+        for m in self.MLP_layers:
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+        nn.init.kaiming_uniform_(self.predict_layer.weight,
+                                 a=1, nonlinearity='sigmoid')
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                m.bias.data.zero_()
 
     def forward(self, x):
-        user_id, item_id = x[:, 0], x[:, 1]
-        gmf_product = self.gmf_forward(user_id, item_id)
-        mlp_output = self.mlp_forward(user_id, item_id)
-        return self.output_logits(torch.cat([gmf_product, mlp_output], dim=1)).view(-1)
+        user = x[:, 0]
+        item = x[:, 1]
+        if not self.model == 'MLP':
+            embed_user_GMF = self.embed_user_GMF(user)
+            embed_item_GMF = self.embed_item_GMF(item)
+            output_GMF = embed_user_GMF * embed_item_GMF
+        if not self.model == 'GMF':
+            embed_user_MLP = self.embed_user_MLP(user)
+            embed_item_MLP = self.embed_item_MLP(item)
+            interaction = torch.cat((embed_user_MLP, embed_item_MLP), -1)
+            output_MLP = self.MLP_layers(interaction)
 
-    def gmf_forward(self, user_id, item_id):
-        user_emb = self.gmf_user_embeddings(user_id)
-        item_emb = self.gmf_item_embeddings(item_id)
-        return torch.mul(user_emb, item_emb)
+        if self.model == 'GMF':
+            concat = output_GMF
+        elif self.model == 'MLP':
+            concat = output_MLP
+        else:
+            concat = torch.cat((output_GMF, output_MLP), -1)
 
-    def mlp_forward(self, user_id, item_id):
-        user_emb = self.mlp_user_embeddings(user_id)
-        item_emb = self.mlp_item_embeddings(item_id)
-        return self.mlp(torch.cat([user_emb, item_emb], dim=1))
-
-    def join_output_weights(self):
-        W = torch.nn.Parameter(
-            torch.cat((self.model_blending * self.gmf_out.weight, (1 - self.model_blending) * self.mlp_out.weight),
-                      dim=1))
-        self.output_logits.weight = W
-
-    def layer_setter(self, model, model_copy):
-        for m, mc in zip(model.parameters(), model_copy.parameters()):
-            mc.data[:] = m.data[:]
-
-    def load_server_weights(self, server_model):
-        self.layer_setter(server_model.mlp_item_embeddings, self.mlp_item_embeddings)
-        self.layer_setter(server_model.gmf_item_embeddings, self.gmf_item_embeddings)
-        self.layer_setter(server_model.mlp, self.mlp)
-        self.layer_setter(server_model.gmf_out, self.gmf_out)
-        self.layer_setter(server_model.mlp_out, self.mlp_out)
-        self.layer_setter(server_model.output_logits, self.output_logits)
-
-
-class ServerNeuralCollaborativeFiltering(torch.nn.Module):
-    def __init__(self, item_num, predictive_factor=32):
-        super(ServerNeuralCollaborativeFiltering, self).__init__()
-        self.mlp_item_embeddings = torch.nn.Embedding(num_embeddings=item_num, embedding_dim=2 * predictive_factor)
-        self.gmf_item_embeddings = torch.nn.Embedding(num_embeddings=item_num, embedding_dim=2 * predictive_factor)
-        self.mlp = torch.nn.Sequential(torch.nn.Linear(4 * predictive_factor, 2 * predictive_factor),
-                                       torch.nn.ReLU(),
-                                       torch.nn.Linear(2 * predictive_factor, predictive_factor),
-                                       torch.nn.ReLU(),
-                                       torch.nn.Linear(predictive_factor, predictive_factor // 2),
-                                       torch.nn.ReLU()
-                                       )
-        self.gmf_out = torch.nn.Linear(2 * predictive_factor, 1)
-        self.gmf_out.weight = torch.nn.Parameter(torch.ones(1, 2 * predictive_factor))
-        self.mlp_out = torch.nn.Linear(predictive_factor // 2, 1)
-        self.output_logits = torch.nn.Linear(predictive_factor, 1)
-        self.model_blending = 0.5  # alpha parameter, equation 13 in the paper
-        self.initialize_weights()
-        self.join_output_weights()
-
-    def initialize_weights(self):
-        torch.nn.init.normal_(self.mlp_item_embeddings.weight, std=0.01)
-        torch.nn.init.normal_(self.gmf_item_embeddings.weight, std=0.01)
-        for layer in self.mlp:
-            if isinstance(layer, torch.nn.Linear):
-                torch.nn.init.xavier_uniform_(layer.weight)
-        torch.nn.init.kaiming_uniform_(self.gmf_out.weight, a=1)
-        torch.nn.init.kaiming_uniform_(self.mlp_out.weight, a=1)
-
-    def layer_setter(self, model, model_copy):
-        for m, mc in zip(model.parameters(), model_copy.parameters()):
-            mc.data[:] = m.data[:]
-
-    def set_weights(self, model):
-        self.layer_setter(model.mlp_item_embeddings, self.mlp_item_embeddings)
-        self.layer_setter(model.gmf_item_embeddings, self.gmf_item_embeddings)
-        self.layer_setter(model.mlp, self.mlp)
-        self.layer_setter(model.gmf_out, self.gmf_out)
-        self.layer_setter(model.mlp_out, self.mlp_out)
-        self.layer_setter(model.output_logits, self.output_logits)
-
-    def forward(self):
-        return torch.tensor(0.0)
-
-    def join_output_weights(self):
-        W = torch.nn.Parameter(
-            torch.cat((self.model_blending * self.gmf_out.weight, (1 - self.model_blending) * self.mlp_out.weight),
-                      dim=1))
-        self.output_logits.weight = W
+        prediction = self.predict_layer(concat)
+        return prediction.view(-1)
