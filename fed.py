@@ -1,9 +1,10 @@
+from model import NCFModel
 from server import Server
 from utils import *
 from client import Client
 
 
-def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num):
+def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, model):
     """
     Distribute the train data and test data to clients.
     """
@@ -15,11 +16,14 @@ def get_clients(clients_train_data, clients_train_label, test_data, user_num, it
 
 
 def main():
+    """
+    Construct the NCF model and run the federated learning.
+    """
     Config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.backends.cudnn.benchmark = True
     Config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     user_num, item_num, train_data, train_label, test_data = get_ncf_data()
-    clients_train_data, clients_train_label = distribute_data(train_data, train_label, user_num, item_num)
+    clients_train_data, clients_train_label = distribute_data(train_data, train_label, user_num)
     client_list = get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num)
     server = Server(client_list, user_num, item_num, test_data)
     server.run()

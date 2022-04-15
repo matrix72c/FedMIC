@@ -1,6 +1,4 @@
-import numpy as np
 from torch import nn
-from tqdm import tqdm
 import torch.utils.data as Data
 from model import NCFModel
 from utils import *
@@ -21,24 +19,19 @@ class Client:
 
     def train_batch(self, x, y):
         y_ = self.model(x)
-        loss = nn.BCEWithLogitsLoss()(y_, y)  # only calculate loss for positive samples
+        loss = nn.BCEWithLogitsLoss()(y_, y)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.item(), y_.detach()
 
-    def train(self, rnd=0):
+    def train(self):
         self.model.train()
         epochs = Config.epochs
         loss = 0
         for epoch in range(epochs):
-            loop = tqdm(enumerate(self.loader), total=len(self.loader), leave=False)
-            for _id, data in loop:
+            for data in self.loader:
                 x = data[0].to(Config.device)
                 y = data[1].to(Config.device)
                 loss, y_ = self.train_batch(x, y)
-                loop.set_description("Round: %d, Client_id: %d, Epoch: [%d/%d]" % (rnd, self.client_id, epoch, epochs))
-                loop.set_postfix(loss=loss)
-            # hit, ndcg = evaluate(self.model, self.test_data)
-            # print("Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (loss, hit, ndcg))
         return loss

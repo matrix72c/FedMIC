@@ -1,5 +1,7 @@
 import copy
 import random
+import time
+from tqdm import tqdm
 from model import NCFModel
 from utils import *
 
@@ -14,16 +16,21 @@ class Server:
 
     def iterate(self, rnd=0):  # rnd -> round
         """
-        train sample model and update model
+        Train sampled model and aggregate model by FedAvg.
         """
+        t = time.time()
         clients = random.sample(self.clients, Config.sample_size)
         loss = []
         models_dict = []
-        for client in clients:
-            loss.append(client.train(rnd))
+        loop = tqdm(enumerate(clients), total=len(clients))
+        for idx, client in loop:
+            client.model.load_state_dict(self.model.state_dict())
+            loss.append(client.train())
             models_dict.append(client.model.state_dict())
+            loop.set_description("Round: %d, Client: %d" % (rnd, client.client_id))
+            loop.set_postfix(loss=loss[-1])
 
-        # update model
+        # FedAvg
         server_new_dict = copy.deepcopy(models_dict[0])
         for i in range(1, len(models_dict)):
             client_dict = models_dict[i]
@@ -33,13 +40,11 @@ class Server:
             server_new_dict[k] /= len(models_dict)
         self.model.load_state_dict(server_new_dict)
 
-        # set model
-        for client in self.clients:
-            client.model.load_state_dict(self.model.state_dict())
-
         # evaluate model
         hit, ndcg = evaluate(self.model, self.test_data)
-        print("Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (np.mean(loss), hit, ndcg))
+        tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
+            rnd, time.time() - t, np.mean(loss), hit, ndcg))
+        time.sleep(1)
 
     def run(self):
         for rnd in range(Config.rounds):  # rnd -> round
