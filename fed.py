@@ -4,7 +4,7 @@ from utils import *
 from client import Client
 
 
-def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, model):
+def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num):
     """
     Distribute the train data and test data to clients.
     """
