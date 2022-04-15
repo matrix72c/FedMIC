@@ -22,13 +22,14 @@ class Server:
         clients = random.sample(self.clients, Config.sample_size)
         loss = []
         models_dict = []
-        loop = tqdm(enumerate(clients), total=len(clients))
-        for idx, client in loop:
+        # loop = tqdm(enumerate(clients), total=len(clients))
+        # for i, client in enumerate(clients):
+        for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss.append(client.train())
             models_dict.append(client.model.state_dict())
-            loop.set_description("Round: %d, Client: %d" % (rnd, client.client_id))
-            loop.set_postfix(loss=loss[-1])
+            # loop.set_description("Round: %d, Client: %d" % (rnd, client.client_id))
+            # loop.set_postfix(loss=loss[-1])
 
         # FedAvg
         server_new_dict = copy.deepcopy(models_dict[0])
@@ -40,12 +41,17 @@ class Server:
             server_new_dict[k] /= len(models_dict)
         self.model.load_state_dict(server_new_dict)
 
-        # evaluate model
-        hit, ndcg = evaluate(self.model, self.test_data)
-        tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
-            rnd, time.time() - t, np.mean(loss), hit, ndcg))
-        time.sleep(1)
+        return np.mean(loss).item()
 
     def run(self):
+        t = time.time()
         for rnd in range(Config.rounds):  # rnd -> round
-            self.iterate(rnd)
+            loss = self.iterate(rnd)
+
+            # evaluate model
+            if rnd % Config.eval_every == 0:
+                hit, ndcg = evaluate(self.model, self.test_data)
+                tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
+                    rnd, time.time() - t, loss, hit, ndcg))
+                time.sleep(1)
+                t = time.time()

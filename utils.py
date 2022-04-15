@@ -16,14 +16,15 @@ class Config:
     dropout = 0
     learning_rate = 0.001
     batch_size = 256
-    epochs = 5
+    epochs = 1
     dropout = 0
     device = None
-    rounds = 1000
+    rounds = 40000
     top_k = 10
-    sample_size = 100
+    sample_size = 10
     model = "NeuMF"
     neg_pos_ratio = 4
+    eval_every = 500
 
 
 def get_ncf_data():
@@ -123,6 +124,7 @@ class NCFDataset(Dataset):
     """
     NCF dataset for PyTorch DataLoader
     """
+
     def __init__(self, data_x, data_y):
         self.data_x = data_x
         self.data_y = data_y
