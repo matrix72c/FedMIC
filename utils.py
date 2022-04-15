@@ -4,6 +4,7 @@ import torch
 import scipy.sparse as sp
 from torch.utils.data import Dataset
 
+
 class Config:
     """
     General configuration
@@ -15,17 +16,20 @@ class Config:
     dropout = 0
     learning_rate = 0.001
     batch_size = 256
-    epochs = 20
+    epochs = 5
     dropout = 0
     device = None
-    rounds = 200
+    rounds = 1000
     top_k = 10
-    sample_size = 20
+    sample_size = 100
     model = "NeuMF"
     neg_pos_ratio = 4
 
 
 def get_ncf_data():
+    """
+    Load data from files, and convert them into [[user_id, item_id], 0/1] format.
+    """
     train_data = pd.read_csv(Config.train_data_path, sep='\t', header=None, names=['user', 'item'],
                              usecols=[0, 1], dtype={0: np.int32, 1: np.int32})
     user_num = train_data['user'].max() + 1
@@ -43,11 +47,6 @@ def get_ncf_data():
             while (user, j) in train_mat:
                 j = np.random.randint(item_num)
             neg_ui.append([user, j])
-    # for i in range(user_num):
-    #     for j in range(item_num):
-    #         if train_mat[i, j] == 0:
-    #             neg_ui.append([i, j])
-    # neg_ui = random.sample(neg_ui, pos_num * Config.neg_pos_ratio)
     train_data += neg_ui
     train_label += [0 for _ in range(pos_num * Config.neg_pos_ratio)]
 
@@ -71,7 +70,10 @@ def get_ncf_data():
     return user_num, item_num, train_data, train_label, ret_test
 
 
-def distribute_data(train_data, train_label, user_num, item_num):
+def distribute_data(train_data, train_label, user_num):
+    """
+    Distribute the data into each user client(each user has an independent client).
+    """
     clients_train_data, clients_train_label = [[] for _ in range(user_num)], [[] for _ in range(user_num)]
     for i in range(len(train_data)):
         user, item = train_data[i][0], train_data[i][1]
@@ -81,12 +83,18 @@ def distribute_data(train_data, train_label, user_num, item_num):
 
 
 def hit(gt_item, pred_items):
+    """
+    Hit rate
+    """
     if gt_item in pred_items:
         return 1
     return 0
 
 
 def ndcg(gt_item, pred_items):
+    """
+    Normalized discounted cumulative gain
+    """
     if gt_item in pred_items:
         index = pred_items.index(gt_item)
         return np.reciprocal(np.log2(index + 2))
@@ -94,6 +102,9 @@ def ndcg(gt_item, pred_items):
 
 
 def evaluate(model, test_datas):
+    """
+    Evaluate the NCFModel
+    """
     model.eval()
     hits = []
     ndcgs = []
@@ -109,6 +120,9 @@ def evaluate(model, test_datas):
 
 
 class NCFDataset(Dataset):
+    """
+    NCF dataset for PyTorch DataLoader
+    """
     def __init__(self, data_x, data_y):
         self.data_x = data_x
         self.data_y = data_y
@@ -118,5 +132,3 @@ class NCFDataset(Dataset):
 
     def __len__(self):
         return len(self.data_x)
-
-
