@@ -9,7 +9,7 @@ class Config:
     """
     General configuration
     """
-    train_data_path = "data/ml-100k.rating"
+    train_data_path = "data/ml-100k.train.rating"
     test_data_path = "data/ml-100k.test.negative"
     factor_num = 32
     num_layers = 3
