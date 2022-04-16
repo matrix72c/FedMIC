@@ -4,6 +4,7 @@ import time
 from tqdm import tqdm
 from model import NCFModel
 from utils import *
+from torch import nn
 
 
 class Server:
@@ -13,6 +14,7 @@ class Server:
         self.item_num = item_num
         self.test_data = test_data
         self.model = NCFModel(user_num, item_num).to(Config.device)
+        self.distill_optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
 
     def iterate(self, rnd=0):  # rnd -> round
         """
@@ -21,25 +23,27 @@ class Server:
         t = time.time()
         clients = random.sample(self.clients, Config.sample_size)
         loss = []
-        models_dict = []
         # loop = tqdm(enumerate(clients), total=len(clients))
         # for i, client in enumerate(clients):
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss.append(client.train())
-            models_dict.append(client.model.state_dict())
             # loop.set_description("Round: %d, Client: %d" % (rnd, client.client_id))
             # loop.set_postfix(loss=loss[-1])
 
-        # FedAvg
-        server_new_dict = copy.deepcopy(models_dict[0])
-        for i in range(1, len(models_dict)):
-            client_dict = models_dict[i]
-            for k in client_dict.keys():
-                server_new_dict[k] += client_dict[k]
-        for k in server_new_dict.keys():
-            server_new_dict[k] /= len(models_dict)
-        self.model.load_state_dict(server_new_dict)
+        for client in clients:
+            client_dict = client.model.state_dict()
+            client_model = NCFModel(self.user_num, self.item_num).to(Config.device)
+            client_model.load_state_dict(client_dict)
+            for _ in range(Config.distill_epochs):
+                data_batch = torch.tensor([[client.client_id, random.randint(0, self.item_num - 1)]
+                                           for _ in range(Config.distill_batch_size)]).to(Config.device)
+                client_logits, client_softmax = client_model(data_batch, softmax=True)
+                server_logits, server_softmax = self.model(data_batch, softmax=True)
+                distill_loss = nn.KLDivLoss()(server_softmax, client_softmax)
+                distill_loss.backward()
+                self.distill_optimizer.step()
+                self.distill_optimizer.zero_grad()
 
         return np.mean(loss).item()
 

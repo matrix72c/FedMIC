@@ -29,6 +29,7 @@ class NCFModel(nn.Module):
         else:
             predict_size = factor_num * 2
         self.predict_layer = nn.Linear(predict_size, 1)
+        self.softmax = nn.Softmax(dim=1)
 
         self._init_weight_()
 
@@ -50,7 +51,7 @@ class NCFModel(nn.Module):
             if isinstance(m, nn.Linear) and m.bias is not None:
                 m.bias.data.zero_()
 
-    def forward(self, x):
+    def forward(self, x, softmax=False):
         user = x[:, 0]
         item = x[:, 1]
         if not self.model == 'MLP':
@@ -71,4 +72,7 @@ class NCFModel(nn.Module):
             concat = torch.cat((output_GMF, output_MLP), -1)
 
         prediction = self.predict_layer(concat)
-        return prediction.view(-1)
+        if softmax:
+            return prediction.view(-1), self.softmax(prediction).view(-1)
+        else:
+            return prediction.view(-1)
