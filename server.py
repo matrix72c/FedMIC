@@ -3,6 +3,8 @@ import random
 import time
 from tqdm import tqdm
 from model import NCFModel
+import torch.utils.data as Data
+import numpy as np
 from utils import *
 from torch import nn
 
@@ -20,6 +22,7 @@ class Server:
         """
         Train sampled model and aggregate model by FedAvg.
         """
+        self.model.train()
         t = time.time()
         clients = random.sample(self.clients, Config.sample_size)
         loss = []
@@ -35,12 +38,45 @@ class Server:
             client_dict = client.model.state_dict()
             client_model = NCFModel(self.user_num, self.item_num).to(Config.device)
             client_model.load_state_dict(client_dict)
+
+            # predict all items
+            client_model.eval()
+            total_data = torch.tensor([[client.client_id, i] for i in range(self.item_num)])
+            total_logits = []
+            total_dataset = NCFDataset(total_data, [1. for _ in range(self.item_num)])
+            total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
+            for data, label in total_dataloader:
+                data = data.to(Config.device)
+                pred = client_model(data)
+                total_logits.extend(pred.detach().cpu().numpy())
+            total_logits = torch.tensor(total_logits)
+
+            # get positive items (batch size // 5)
+            _, indices = torch.topk(total_logits, Config.distill_batch_size // 5)
+            positive_data = total_data[indices]
+            positive_logits = total_logits[indices]
+
+            # get the rest of items
+            total_data = torch_delete(total_data, indices)
+            total_logits = torch_delete(total_logits, indices)
             for _ in range(Config.distill_epochs):
-                data_batch = torch.tensor([[client.client_id, random.randint(0, self.item_num - 1)]
-                                           for _ in range(Config.distill_batch_size)]).to(Config.device)
-                client_logits, client_softmax = client_model(data_batch, softmax=True)
-                server_logits, server_softmax = self.model(data_batch, softmax=True)
-                distill_loss = nn.KLDivLoss()(server_softmax, client_softmax)
+                # get neg items id and corresponding logits
+                neg_samples = torch.randint(0, len(total_data) + 1, (Config.distill_batch_size // 5 * 4,))
+                negative_data = total_data[neg_samples]
+                negative_logits = torch.tensor(total_logits)[neg_samples]
+
+                # concat positive and negative samples
+                client_batch = torch.cat([positive_data, negative_data], dim=0)
+                client_logits = torch.cat([positive_logits, negative_logits], dim=0)
+
+                # start real distill epoch
+                # client_softmax = torch.softmax(client_logits, dim=0)
+                data_batch = torch.tensor(client_batch).to(Config.device)
+                # client_logits = client_model(data_batch)
+                server_logits = self.model(data_batch)
+                # server_softmax = torch.softmax(server_logits, dim=0)
+                # distill_loss = nn.KLDivLoss()(server_softmax, client_softmax)
+                distill_loss = nn.KLDivLoss()(server_logits, client_logits)
                 distill_loss.backward()
                 self.distill_optimizer.step()
                 self.distill_optimizer.zero_grad()

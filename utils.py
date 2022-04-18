@@ -15,7 +15,7 @@ class Config:
     num_layers = 3
     dropout = 0
     learning_rate = 0.001
-    batch_size = 256
+    batch_size = 64
     epochs = 1
     dropout = 0
     device = None
@@ -27,7 +27,7 @@ class Config:
     eval_every = 500
     distill_batch_size = 256
     distill_learning_rate = 0.001
-    distill_epochs = 1
+    distill_epochs = 5
 
 
 def get_ncf_data():
@@ -121,6 +121,17 @@ def evaluate(model, test_datas):
         hits.append(hit(gt_item, recommends))
         ndcgs.append(ndcg(gt_item, recommends))
     return np.mean(hits), np.mean(ndcgs)
+
+
+def normalization(data):
+    _range = np.max(data) - np.min(data)
+    return (data - np.min(data)) / _range
+
+
+def torch_delete(tensor, indices):
+    mask = torch.ones(len(tensor), dtype=torch.bool)
+    mask[indices] = False
+    return tensor[mask]
 
 
 class NCFDataset(Dataset):
