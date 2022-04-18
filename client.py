@@ -12,7 +12,7 @@ class Client:
         self.user_num = user_num
         self.item_num = item_num
         self.client_id = client_id
-        self.model = NCFModel(user_num, item_num).to(Config.device)
+        self.model = NCFModel(user_num, item_num)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
         self.loader = Data.DataLoader(self.dataset, batch_size=Config.batch_size, shuffle=True, num_workers=0)
@@ -26,6 +26,7 @@ class Client:
         return loss.item(), y_.detach()
 
     def train(self):
+        self.model = self.model.to(Config.device)
         self.model.train()
         epochs = Config.epochs
         loss = 0
@@ -34,4 +35,5 @@ class Client:
                 x = data[0].to(Config.device)
                 y = data[1].to(Config.device)
                 loss, y_ = self.train_batch(x, y)
+        self.model = self.model.to('cpu')
         return loss
