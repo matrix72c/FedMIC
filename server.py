@@ -4,15 +4,20 @@ import time
 from tqdm import tqdm
 from model import NCFModel
 from utils import *
+import torch.nn.functional as F
+import torch.nn as nn
 
 
 class Server:
-    def __init__(self, client_list, user_num, item_num, test_data):
+    def __init__(self, client_list, total_unlabeled_data, user_num, item_num, test_data):
         self.clients = client_list
+        self.total_unlabeled_data = total_unlabeled_data
         self.user_num = user_num
         self.item_num = item_num
         self.test_data = test_data
         self.model = NCFModel(user_num, item_num).to(Config.device)
+        self.distill_loss = nn.KLDivLoss(reduction='batchmean')
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
 
     def iterate(self, rnd=0):  # rnd -> round
         """
@@ -20,28 +25,25 @@ class Server:
         """
         t = time.time()
         clients = random.sample(self.clients, Config.sample_size)
-        loss = []
-        models_dict = []
-        # loop = tqdm(enumerate(clients), total=len(clients))
-        # for i, client in enumerate(clients):
+        loss_list = []
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
-            loss.append(client.train())
-            models_dict.append(client.model.state_dict())
-            # loop.set_description("Round: %d, Client: %d" % (rnd, client.client_id))
-            # loop.set_postfix(loss=loss[-1])
+            loss_list.append(client.train())
 
-        # FedAvg
-        server_new_dict = copy.deepcopy(models_dict[0])
-        for i in range(1, len(models_dict)):
-            client_dict = models_dict[i]
-            for k in client_dict.keys():
-                server_new_dict[k] += client_dict[k]
-        for k in server_new_dict.keys():
-            server_new_dict[k] /= len(models_dict)
-        self.model.load_state_dict(server_new_dict)
-
-        return np.mean(loss).item()
+        distill_batch = random.sample(self.total_unlabeled_data, Config.distill_batch_size)
+        distill_batch = torch.tensor(distill_batch).to(Config.device)
+        logits_list = []
+        for client in clients:
+            logits_list.append(client.model(distill_batch))
+        client_logits = sum(logits_list) / len(logits_list)
+        client_softmax = F.softmax(client_logits, dim=0)
+        prediction_logits = self.model(distill_batch)
+        prediction_softmax = F.softmax(prediction_logits, dim=0)
+        self.optimizer.zero_grad()
+        loss = self.distill_loss(prediction_softmax, client_softmax)
+        loss.backward()
+        self.optimizer.step()
+        return np.mean(loss_list).item()
 
     def run(self):
         t = time.time()

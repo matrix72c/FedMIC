@@ -17,7 +17,6 @@ class Config:
     learning_rate = 0.001
     batch_size = 256
     epochs = 1
-    dropout = 0
     device = None
     rounds = 40000
     top_k = 10
@@ -25,6 +24,8 @@ class Config:
     model = "NeuMF"
     neg_pos_ratio = 4
     eval_every = 500
+    distill_batch_size = 128
+    distill_learning_rate = 0.001
 
 
 def get_ncf_data():
