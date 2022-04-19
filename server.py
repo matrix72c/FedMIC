@@ -61,19 +61,18 @@ class Server:
             total_logits = torch_delete(total_logits, indices)
             for _ in range(Config.distill_epochs):
                 # get neg items id and corresponding logits
-                neg_samples = torch.randint(0, len(total_data) + 1, (Config.distill_batch_size // 5 * 4,))
+                neg_samples = torch.randint(0, len(total_data), (Config.distill_batch_size // 5 * 4,))
                 negative_data = total_data[neg_samples]
-                negative_logits = torch.tensor(total_logits)[neg_samples]
+                negative_logits = total_logits[neg_samples]
 
                 # concat positive and negative samples
-                client_batch = torch.cat([positive_data, negative_data], dim=0)
-                client_logits = torch.cat([positive_logits, negative_logits], dim=0)
+                client_batch = torch.cat([positive_data, negative_data], dim=0).to(Config.device)
+                client_logits = torch.cat([positive_logits, negative_logits], dim=0).to(Config.device)
 
                 # start real distill epoch
                 # client_softmax = torch.softmax(client_logits, dim=0)
-                data_batch = torch.tensor(client_batch).to(Config.device)
                 # client_logits = client_model(data_batch)
-                server_logits = self.model(data_batch)
+                server_logits = self.model(client_batch)
                 # server_softmax = torch.softmax(server_logits, dim=0)
                 # distill_loss = nn.KLDivLoss()(server_softmax, client_softmax)
                 distill_loss = nn.KLDivLoss()(server_logits, client_logits)

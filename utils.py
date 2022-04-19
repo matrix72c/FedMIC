@@ -24,7 +24,7 @@ class Config:
     sample_size = 10
     model = "NeuMF"
     neg_pos_ratio = 4
-    eval_every = 500
+    eval_every = 50
     distill_batch_size = 256
     distill_learning_rate = 0.001
     distill_epochs = 5
