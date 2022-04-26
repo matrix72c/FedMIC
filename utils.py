@@ -109,6 +109,7 @@ def evaluate(model, test_datas):
     """
     Evaluate the NCFModel
     """
+    model = model.to(Config.device)
     model.eval()
     hits = []
     ndcgs = []
