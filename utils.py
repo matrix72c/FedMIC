@@ -69,7 +69,7 @@ def get_ncf_data():
         for j in range(len(test_list[i][0])):
             tmp.append([i, test_list[i][0][j]])
         ret_test.append([tmp, test_list[i][1]])
-    return user_num, item_num, train_data, train_label, ret_test
+    return user_num, item_num, train_data, train_label, ret_test, pos_num
 
 
 def distribute_data(train_data, train_label, user_num):
