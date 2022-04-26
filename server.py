@@ -92,5 +92,4 @@ class Server:
                 hit, ndcg = evaluate(self.model, self.test_data)
                 tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
                     rnd, time.time() - t, loss, hit, ndcg))
-                time.sleep(1)
                 t = time.time()
