@@ -16,7 +16,7 @@ class Config:
     dropout = 0
     learning_rate = 0.001
     batch_size = 64
-    epochs = 1
+    epochs = 10
     dropout = 0
     device = None
     rounds = 40000

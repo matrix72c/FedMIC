@@ -52,7 +52,8 @@ class Server:
             total_logits = torch.tensor(total_logits)
 
             # get positive items (batch size // 5)
-            _, indices = torch.topk(total_logits, Config.distill_batch_size // 5)
+            _, indices = torch.topk(total_logits, Config.distill_batch_size // 5 * 2)
+            # _, indices = torch.topk(total_logits, Config.distill_batch_size)
             positive_data = total_data[indices]
             positive_logits = total_logits[indices]
 
@@ -61,35 +62,37 @@ class Server:
             total_logits = torch_delete(total_logits, indices)
             for _ in range(Config.distill_epochs):
                 # get neg items id and corresponding logits
-                neg_samples = torch.randint(0, len(total_data), (Config.distill_batch_size // 5 * 4,))
+                neg_samples = torch.randint(0, len(total_data), (Config.distill_batch_size // 5 * 3
+                                                                 ,))
                 negative_data = total_data[neg_samples]
                 negative_logits = total_logits[neg_samples]
 
                 # concat positive and negative samples
                 client_batch = torch.cat([positive_data, negative_data], dim=0).to(Config.device)
                 client_logits = torch.cat([positive_logits, negative_logits], dim=0).to(Config.device)
+                # client_batch = positive_data.to(Config.device)
+                # client_logits = positive_logits.to(Config.device)
 
                 # start real distill epoch
-                # client_softmax = torch.softmax(client_logits, dim=0)
+                client_softmax = torch.softmax(client_logits, dim=0)
                 # client_logits = client_model(data_batch)
                 server_logits = self.model(client_batch)
-                # server_softmax = torch.softmax(server_logits, dim=0)
-                # distill_loss = nn.KLDivLoss()(server_softmax, client_softmax)
-                distill_loss = nn.KLDivLoss()(server_logits, client_logits)
+                server_softmax = torch.softmax(server_logits, dim=0)
+                distill_loss = nn.KLDivLoss()(server_softmax.log(), client_softmax)
+                # distill_loss = nn.KLDivLoss()(server_logits, client_logits)
                 distill_loss.backward()
                 self.distill_optimizer.step()
                 self.distill_optimizer.zero_grad()
-
-        return np.mean(loss).item()
+        return np.mean(loss).item(), distill_loss.item()
 
     def run(self):
         t = time.time()
         for rnd in range(Config.rounds):  # rnd -> round
-            loss = self.iterate(rnd)
+            loss, distill_loss = self.iterate(rnd)
 
             # evaluate model
             if rnd % Config.eval_every == 0:
                 hit, ndcg = evaluate(self.model, self.test_data)
-                tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
-                    rnd, time.time() - t, loss, hit, ndcg))
+                tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, distill_loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
+                    rnd, time.time() - t, loss, distill_loss, hit, ndcg))
                 t = time.time()
