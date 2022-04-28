@@ -6,6 +6,7 @@ from model import NCFModel
 from utils import *
 import torch.nn.functional as F
 import torch.nn as nn
+from Logger import log_distill_result
 
 
 class Server:
