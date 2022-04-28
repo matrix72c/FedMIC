@@ -16,6 +16,7 @@ class Server:
         self.item_num = item_num
         self.test_data = test_data
         self.model = NCFModel(user_num, item_num).to(Config.device)
+        self.distill_loss_func = nn.KLDivLoss()
         self.distill_optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
 
     def iterate(self, rnd=0):  # rnd -> round
@@ -27,63 +28,33 @@ class Server:
         clients = random.sample(self.clients, Config.sample_size)
         loss = []
         distill_loss = None
-        # loop = tqdm(enumerate(clients), total=len(clients))
-        # for i, client in enumerate(clients):
+        distill_batch = None
+        distill_logits = None
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss.append(client.train())
-            # loop.set_description("Round: %d, Client: %d" % (rnd, client.client_id))
-            # loop.set_postfix(loss=loss[-1])
+            client_batch, client_logits = client.get_distill_batch()
+            if distill_batch is None:
+                distill_batch = client_batch
+                distill_logits = client_logits
+            else:
+                distill_batch = torch.cat((distill_batch, client_batch), dim=0)
+                distill_logits = torch.cat((distill_logits, client_logits), dim=0)
 
-        for client in clients:
-            client_dict = client.model.state_dict()
-            client_model = NCFModel(self.user_num, self.item_num).to(Config.device)
-            client_model.load_state_dict(client_dict)
+        distill_data = Data.TensorDataset(distill_batch, distill_logits)
+        distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True)
+        for _ in range(Config.distill_epochs):
+            for batch, logits in distill_loader:
+                batch = batch.to(Config.device)
+                logits = logits.to(Config.device)
 
-            # predict all items
-            client_model.eval()
-            total_data = torch.tensor([[client.client_id, i] for i in range(self.item_num)])
-            total_logits = []
-            total_dataset = NCFDataset(total_data, [1. for _ in range(self.item_num)])
-            total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
-            for data, label in total_dataloader:
-                data = data.to(Config.device)
-                pred = client_model(data)
-                total_logits.extend(pred.detach().cpu().numpy())
-            total_logits = torch.tensor(total_logits)
-
-            # get positive items (batch size // 5)
-            _, indices = torch.topk(total_logits, Config.distill_batch_size // 5 * 2)
-            # _, indices = torch.topk(total_logits, Config.distill_batch_size)
-            positive_data = total_data[indices]
-            positive_logits = total_logits[indices]
-
-            # get the rest of items
-            total_data = torch_delete(total_data, indices)
-            total_logits = torch_delete(total_logits, indices)
-            for _ in range(Config.distill_epochs):
-                # get neg items id and corresponding logits
-                neg_samples = torch.randint(0, len(total_data), (Config.distill_batch_size // 5 * 3
-                                                                 ,))
-                negative_data = total_data[neg_samples]
-                negative_logits = total_logits[neg_samples]
-
-                # concat positive and negative samples
-                client_batch = torch.cat([positive_data, negative_data], dim=0).to(Config.device)
-                client_logits = torch.cat([positive_logits, negative_logits], dim=0).to(Config.device)
-                # client_batch = positive_data.to(Config.device)
-                # client_logits = positive_logits.to(Config.device)
-
-                # start real distill epoch
-                client_softmax = torch.softmax(client_logits, dim=0)
-                # client_logits = client_model(data_batch)
-                server_logits = self.model(client_batch)
-                server_softmax = torch.softmax(server_logits, dim=0)
-                distill_loss = nn.KLDivLoss()(server_softmax.log(), client_softmax)
-                # distill_loss = nn.KLDivLoss()(server_logits, client_logits)
+                self.distill_optimizer.zero_grad()
+                predict = self.model(batch)
+                logits_softmax = torch.softmax(logits, dim=0)
+                predict_softmax = torch.softmax(predict, dim=0)
+                distill_loss = self.distill_loss_func(predict_softmax.log(), logits_softmax)
                 distill_loss.backward()
                 self.distill_optimizer.step()
-                self.distill_optimizer.zero_grad()
         return np.mean(loss).item(), distill_loss.item() if distill_loss is not None else None
 
     def run(self):
