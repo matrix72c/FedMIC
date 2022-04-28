@@ -26,6 +26,7 @@ class Server:
         t = time.time()
         clients = random.sample(self.clients, Config.sample_size)
         loss = []
+        distill_loss = None
         # loop = tqdm(enumerate(clients), total=len(clients))
         # for i, client in enumerate(clients):
         for client in clients:
@@ -83,7 +84,7 @@ class Server:
                 distill_loss.backward()
                 self.distill_optimizer.step()
                 self.distill_optimizer.zero_grad()
-        return np.mean(loss).item(), distill_loss.item()
+        return np.mean(loss).item(), distill_loss.item() if distill_loss is not None else None
 
     def run(self):
         t = time.time()
