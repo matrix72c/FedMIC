@@ -36,25 +36,24 @@ class Server:
         for client in clients:
             logits_list.append(client.model(distill_batch))
         client_logits = sum(logits_list) / len(logits_list)
-        # client_softmax = F.softmax(client_logits, dim=0)
+        client_softmax = F.softmax(client_logits, dim=0)
         prediction_logits = self.model(distill_batch)
-        # prediction_softmax = F.softmax(prediction_logits, dim=0)
+        prediction_softmax = F.softmax(prediction_logits, dim=0)
         self.optimizer.zero_grad()
-        # loss = self.distill_loss(prediction_softmax, client_softmax)
-        loss = self.distill_loss(prediction_logits, client_logits)
+        loss = self.distill_loss(prediction_softmax.log(), client_softmax)
         loss.backward()
         self.optimizer.step()
-        return np.mean(loss_list).item()
+        return np.mean(loss_list).item(), loss.item()
 
     def run(self):
         t = time.time()
         for rnd in range(Config.rounds):  # rnd -> round
-            loss = self.iterate(rnd)
+            loss, distill_loss = self.iterate(rnd)
 
             # evaluate model
             if rnd % Config.eval_every == 0:
                 hit, ndcg = evaluate(self.model, self.test_data)
-                tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
-                    rnd, time.time() - t, loss, hit, ndcg))
+                tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, distill_loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
+                    rnd, time.time() - t, loss, distill_loss, hit, ndcg))
                 time.sleep(1)
                 t = time.time()
