@@ -14,7 +14,7 @@
 
 上述的这些工作仍然是在FedAvg的基础上进行的方法迁移，并没有根据推荐系统本身的特点进行调整。具体来讲，联邦推荐与其他联邦监督学习最大的差异在于，客户端仅拥有单个用户的数据，即各客户端数据存在严重的非独立同分布的现象，因而基于神经网络的推荐算法在联邦框架下出现通信次数过多、模型计算复杂等特点。
 
-为了解决上述的问题，我们提出了一个新的联邦推荐框架，使用类似于知识蒸馏的方法去聚合各客户端信息（在NCF模型下开销下降99.6%），将计算集中于服务端，平衡客户端间算力、通信能力不均等的情形，使模型在性能不下降的前提下大幅缩短迭代所需时间和通信轮数。
+为了解决上述的问题，我们提出了一个新的联邦推荐框架，使用类似于知识蒸馏的方法去聚合各客户端信息，将蒸馏中生成unlabel dataset与计算目标logits的过程交由客户端执行，增加了通信效率，并能更充分利用客户端算力。
 
 ### Related Work
 
@@ -118,7 +118,7 @@ $$
 
 #### Distillation-like Model Fusion
 
-FedMix框架的核心概念就是将选出的 $|S_t|$ 个客户端的模型作为老师，服务端的模型作为学生，进行蒸馏。具体的讲，客户端将user_id 、无标签的数据集 $\mathbf{d}_k$ 与其对应的 logit 输出传至服务端，服务端模型依据此进行蒸馏。
+FedMix框架的核心概念就是将选出的 $|S_t|$ 个客户端的模型作为老师，服务端的模型作为学生，进行蒸馏。具体的讲，客户端将无标签的数据集 $\mathbf{d}_k$ 与其对应的 logit 输出传至服务端，服务端模型依据此进行蒸馏。
 $$
 \begin{equation}
 \mathbf{x}_{t, j}:=\mathbf{x}_{t, j-1}-\eta \frac{\partial \mathrm{KL}\left(\sigma\left( f\left(\hat{\mathbf{x}}_{t}^{k}, \mathbf{d}\right)\right), \sigma\left(f\left(\mathbf{x}_{t, j-1}, \mathbf{d}\right)\right)\right)}{\partial \mathbf{x}_{t, j-1}}
@@ -130,13 +130,13 @@ $$
 
 #### Utilizing constructed data for distillation
 
-针对联邦推荐中数据分布的实际情况，我们认为类似于 FedDF 中的对于 logit 取均值的算法是低效的。对于单条无标签数据，更加高效的选择是直接取 user_id 相对应的客户端作为教师以完成蒸馏。因此，我们的蒸馏用数据集构造算法如下：
+针对联邦推荐中数据分布的实际情况，我们认为类似于 FedDF 中对所有教师端使用同一unlabeled dataset进行预测后对logit 取均值的算法是低效的，更适用于图像识别等一般Non-IID的情况。对于推荐系统中更为极端的Non-IID情况，更加高效的选择是由客户端生成相应的unlabeled dataset，再传给服务器进行学习。因此，我们的蒸馏用数据集构造算法如下：
 
 
 
 #### Discussions on privacy-preserving extension
 
-与FedAvg相比，我们的方案没有传输模型的完整的参数，取而代之的，是一组 $\mathbf{x} \rightarrow logit$ 和该客户端对应的 user_id（由于movielens等数据集是一个稀疏的矩阵，我们能够很轻易的获取无标签的数据 $\mathbf{x}$）
+与FedAvg相比，我们的方案没有传输模型的完整的参数，取而代之的，是一组 $\mathbf{x} \rightarrow logit$ （由于movielens等数据集是一个稀疏的矩阵，我们能够很轻易的获取无标签的数据 $\mathbf{x}$）
 
 对于服务端下发模型至客户端过程中可能存在的隐私泄露，可以在框架中添加若干保护机制来保证用户免受泄露之忧，诸如差分隐私、同态加密等。
 
@@ -158,7 +158,7 @@ FedMix是为了在服务器端进行有效的模型融合而设计的，它考�
 
 按照常理，我们认为在推荐系统中一个client仅会出现唯一一个 user_id，因此，我们依据 user_id 划分训练集，每个 client 分配到仅由单个 user_id 组成的交互记录。
 
-本地训练时，由于数据集仅含有正例，根据NCF论文中的研究，随机选择数量4倍于正例的 item_id 构建负例共同组成训练集。损失函数设置为交叉熵，优化器使用Adam优化器，learning rate初值统一为0.001，并设置基础的学习率衰减。本地epoch设置为5轮。训练完成后，预测所有 item 可能的概率，选择概率前 10% 大的用户-物品对与其对应的 logit返回给服务端。
+本地训练时，由于数据集仅含有正例，根据NCF论文中的研究，随机选择数量4倍于正例的 item_id 构建负例共同组成训练集。损失函数设置为交叉熵，优化器使用Adam优化器，learning rate初值统一为0.001，并设置基础的学习率衰减。本地epoch设置为5轮。训练完成后，预测所有 item 可能的概率，选择概率最大的distill_batchsize个用户-物品对与其对应的 logit返回给服务端。
 
 ##### Server side model fusion procedure
 
