@@ -7,6 +7,7 @@ import torch.utils.data as Data
 import numpy as np
 from utils import *
 from torch import nn
+from Logger import log_distill_result
 
 
 class Server:
@@ -44,6 +45,7 @@ class Server:
         distill_data = Data.TensorDataset(distill_batch, distill_logits)
         distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True)
         for _ in range(Config.distill_epochs):
+            distill_batch_loss_list = []
             for batch, logits in distill_loader:
                 batch = batch.to(Config.device)
                 logits = logits.to(Config.device)
@@ -52,19 +54,21 @@ class Server:
                 predict = self.model(batch)
                 logits_softmax = torch.softmax(logits, dim=0)
                 predict_softmax = torch.softmax(predict, dim=0)
-                distill_loss = self.distill_loss_func(predict_softmax.log(), logits_softmax)
-                distill_loss.backward()
+                batch_loss = self.distill_loss_func(predict_softmax.log(), logits_softmax)
+                batch_loss.backward()
                 self.distill_optimizer.step()
-        return np.mean(loss).item(), distill_loss.item() if distill_loss is not None else None
+                distill_batch_loss_list.append(batch_loss.item())
+            distill_loss = np.mean(distill_batch_loss_list)
+        return np.mean(loss).item(), distill_loss.item()
 
     def run(self):
         t = time.time()
         for rnd in range(Config.rounds):  # rnd -> round
             loss, distill_loss = self.iterate(rnd)
-
+            hit, ndcg = evaluate(self.model, self.test_data)
+            log_distill_result(rnd, distill_loss, hit, ndcg)
             # evaluate model
             if rnd % Config.eval_every == 0:
-                hit, ndcg = evaluate(self.model, self.test_data)
                 tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, distill_loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
                     rnd, time.time() - t, loss, distill_loss, hit, ndcg))
                 t = time.time()
