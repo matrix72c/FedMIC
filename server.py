@@ -17,7 +17,7 @@ class Server:
         self.item_num = item_num
         self.test_data = test_data
         self.model = NCFModel(user_num, item_num).to(Config.device)
-        self.distill_loss_func = nn.KLDivLoss()
+        self.distill_loss_func = nn.KLDivLoss(reduction='batchmean')
         self.distill_optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
 
     def iterate(self, rnd=0):  # rnd -> round
