@@ -3,17 +3,17 @@ import pandas as pd
 
 def init_logger():
     client_loss_df = pd.DataFrame(columns=['client_id', 'local_epoch', 'loss'])
-    client_loss_df.to_csv("./result/avg_client_loss.csv", mode='w')
+    client_loss_df.to_csv("./result/prox_client_loss.csv", mode='w')
 
     distill_result_df = pd.DataFrame(columns=['round', 'distill_loss', 'hr', 'hdcg'])
-    distill_result_df.to_csv("./result/avg_distill_result.csv", mode='w')
+    distill_result_df.to_csv("./result/prox_distill_result.csv", mode='w')
 
 
 def log_client_loss(client_id, local_epoch, loss):
     client_loss_df = pd.DataFrame([[client_id, local_epoch, loss]], columns=['client_id', 'local_epoch', 'loss'])
-    client_loss_df.to_csv("./result/avg_client_loss.csv", mode='a', header=False)
+    client_loss_df.to_csv("./result/prox_client_loss.csv", mode='a', header=False)
 
 
 def log_distill_result(rnd, distill_loss, hr, hdcg):
     distill_result_df = pd.DataFrame([[rnd, distill_loss, hr, hdcg]], columns=['round', 'distill_loss', 'hr', 'hdcg'])
-    distill_result_df.to_csv("./result/avg_distill_result.csv", mode='a', header=False)
+    distill_result_df.to_csv("./result/prox_distill_result.csv", mode='a', header=False)

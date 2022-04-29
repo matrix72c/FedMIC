@@ -26,8 +26,7 @@ class Server:
         # loop = tqdm(enumerate(clients), total=len(clients))
         # for i, client in enumerate(clients):
         for client in clients:
-            client.model.load_state_dict(self.model.state_dict())
-            loss.append(client.train())
+            loss.append(client.train(self.model.state_dict()))
             models_dict.append(client.model.state_dict())
             # loop.set_description("Round: %d, Client: %d" % (rnd, client.client_id))
             # loop.set_postfix(loss=loss[-1])
