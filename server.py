@@ -48,9 +48,10 @@ class Server:
         for rnd in range(Config.rounds):  # rnd -> round
             loss = self.iterate(rnd)
 
+            hit, ndcg = evaluate(self.model, self.test_data)
+            log_distill_result(rnd, distill_loss, hit, ndcg)
             # evaluate model
             if rnd % Config.eval_every == 0:
-                hit, ndcg = evaluate(self.model, self.test_data)
                 tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
                     rnd, time.time() - t, loss, hit, ndcg))
                 time.sleep(1)
