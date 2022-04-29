@@ -16,14 +16,14 @@ class Config:
     dropout = 0
     learning_rate = 0.001
     batch_size = 256
-    epochs = 1
+    epochs = 10
     device = None
     rounds = 40000
     top_k = 10
     sample_size = 10
     model = "NeuMF"
     neg_pos_ratio = 4
-    eval_every = 500
+    eval_every = 10
     distill_batch_size = 128
     distill_learning_rate = 0.001
 
