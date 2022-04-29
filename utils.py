@@ -15,9 +15,8 @@ class Config:
     num_layers = 3
     dropout = 0
     learning_rate = 0.001
-    batch_size = 256
-    epochs = 1
-    dropout = 0
+    batch_size = 64
+    epochs = 10
     device = None
     rounds = 40000
     top_k = 10
