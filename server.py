@@ -4,6 +4,7 @@ import time
 from tqdm import tqdm
 from model import NCFModel
 from utils import *
+from Logger import log_distill_result
 
 
 class Server:
@@ -49,7 +50,7 @@ class Server:
             loss = self.iterate(rnd)
 
             hit, ndcg = evaluate(self.model, self.test_data)
-            log_distill_result(rnd, distill_loss, hit, ndcg)
+            log_distill_result(rnd, 0, hit, ndcg)
             # evaluate model
             if rnd % Config.eval_every == 0:
                 tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (

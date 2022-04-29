@@ -2,6 +2,7 @@ from torch import nn
 import torch.utils.data as Data
 from model import NCFModel
 from utils import *
+from Logger import log_client_loss
 
 
 class Client:
@@ -30,8 +31,11 @@ class Client:
         epochs = Config.epochs
         loss = 0
         for epoch in range(epochs):
+            batch_loss_list = []
             for data in self.loader:
                 x = data[0].to(Config.device)
                 y = data[1].to(Config.device)
                 loss, y_ = self.train_batch(x, y)
+                batch_loss_list.append(loss)
+            log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
         return loss
