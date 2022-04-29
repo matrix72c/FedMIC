@@ -10,9 +10,9 @@ from Logger import log_distill_result
 
 
 class Server:
-    def __init__(self, client_list, user_num, item_num, test_data):
+    def __init__(self, client_list, total_unlabeled_data, user_num, item_num, test_data):
         self.clients = client_list
-        # self.total_unlabeled_data = total_unlabeled_data
+        self.total_unlabeled_data = total_unlabeled_data
         self.user_num = user_num
         self.item_num = item_num
         self.test_data = test_data
@@ -31,12 +31,12 @@ class Server:
             client.model.load_state_dict(self.model.state_dict())
             loss_list.append(client.train())
 
-        # distill_batch = random.sample(self.total_unlabeled_data, Config.distill_batch_size)
-        # distill_batch = torch.tensor(distill_batch).to(Config.device)
-        distill_batch = torch.tensor([[random.randint(0, self.user_num - 1), 
-                                       random.randint(0, self.item_num - 1)] 
-                                       for _ in  range(Config.distill_batch_size)]
-                                       ).to(Config.device)
+        distill_batch = random.sample(self.total_unlabeled_data, Config.distill_batch_size)
+        distill_batch = torch.tensor(distill_batch).to(Config.device)
+        # distill_batch = torch.tensor([[random.randint(0, self.user_num - 1), 
+                                    #    random.randint(0, self.item_num - 1)] 
+                                    #    for _ in  range(Config.distill_batch_size)]
+                                    #    ).to(Config.device)
         logits_list = []
         for client in clients:
             logits_list.append(client.model(distill_batch))
