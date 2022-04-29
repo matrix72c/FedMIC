@@ -46,7 +46,6 @@ class Server:
         prediction_softmax = F.softmax(prediction_logits, dim=0)
         self.optimizer.zero_grad()
         loss = self.distill_loss(prediction_softmax.log(), client_softmax)
-        # loss = self.distill_loss(prediction_logits.log(), client_logits)
         loss.backward()
         self.optimizer.step()
         return np.mean(loss_list).item(), loss.item()
@@ -60,7 +59,8 @@ class Server:
             log_distill_result(rnd, distill_loss, hit, ndcg)
             # evaluate model
             if rnd % Config.eval_every == 0:
-                tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
-                    rnd, time.time() - t, loss, hit, ndcg))
+                hit, ndcg = evaluate(self.model, self.test_data)
+                tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, distill_loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
+                    rnd, time.time() - t, loss, distill_loss, hit, ndcg))
                 time.sleep(1)
                 t = time.time()
