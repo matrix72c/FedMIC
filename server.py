@@ -17,7 +17,7 @@ class Server:
         self.item_num = item_num
         self.test_data = test_data
         self.model = NCFModel(user_num, item_num).to(Config.device)
-        self.distill_loss_func = nn.KLDivLoss()
+        self.distill_loss_func = nn.KLDivLoss(reduction='batchmean')
         self.distill_optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
 
     def iterate(self, rnd=0):  # rnd -> round
@@ -26,7 +26,16 @@ class Server:
         """
         self.model.train()
         t = time.time()
-        clients = random.sample(self.clients, Config.sample_size)
+        resample = True
+        while resample:
+            resample = False
+            clients = random.sample(self.clients, Config.sample_size)
+            # check duplicate
+            client_ids = [c.client_id for c in clients]
+            for client in clients:
+                for fid in client.fake_id_list:
+                    if fid in client_ids:
+                        resample = True
         loss = []
         distill_loss = None
         distill_batch = None

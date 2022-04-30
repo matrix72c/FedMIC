@@ -3,16 +3,18 @@ import torch.utils.data as Data
 from model import NCFModel
 from utils import *
 from Logger import log_client_loss
+import random
 
 
 class Client:
-    def __init__(self, train_data, train_label, test_data, user_num, item_num, client_id=0):
+    def __init__(self, train_data, train_label, test_data, user_num, item_num, client_id=0, num_fake_id=5):
         self.train_data = train_data
         self.train_label = train_label
         self.test_data = test_data
         self.user_num = user_num
         self.item_num = item_num
         self.client_id = client_id
+        self.fake_id_list = [random.randint(0, self.user_num - 1) for _ in range(num_fake_id)]
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
@@ -70,4 +72,21 @@ class Client:
         # concat positive and negative samples
         client_batch = torch.cat([positive_data, negative_data], dim=0)
         client_logits = torch.cat([positive_logits, negative_logits], dim=0)
+
+        # add obfuscation
+        obfuscate_list = []
+        obfuscate_size = len(client_batch)
+        for fake_id in self.fake_id_list:
+            obfuscate_list.extend([[fake_id, random.randint(0, self.item_num - 1)] for _ in range(obfuscate_size)])
+        obfuscate_data = torch.tensor(obfuscate_list)
+        obfuscate_logits = []
+        obfuscate_dataset = NCFDataset(obfuscate_data, [1. for _ in range(len(obfuscate_list))])
+        obfuscate_dataloader = Data.DataLoader(obfuscate_dataset, batch_size=Config.batch_size, shuffle=False)
+        for data, label in obfuscate_dataloader:
+            data = data.to(Config.device)
+            pred = self.model(data)
+            obfuscate_logits.extend(pred.detach().cpu().numpy())
+        obfuscate_logits = torch.tensor(obfuscate_logits)
+        client_batch = torch.cat([client_batch, obfuscate_data], dim=0)
+        client_logits = torch.cat([client_logits, obfuscate_logits], dim=0)
         return client_batch, client_logits
