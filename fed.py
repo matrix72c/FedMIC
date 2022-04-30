@@ -2,6 +2,7 @@ from model import NCFModel
 from server import Server
 from utils import *
 from client import Client
+from Logger import init_logger
 
 
 def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num):
@@ -19,6 +20,7 @@ def main():
     """
     Construct the NCF model and run the federated learning.
     """
+    init_logger()
     torch.backends.cudnn.benchmark = True
     Config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     user_num, item_num, train_data, train_label, test_data = get_ncf_data()
