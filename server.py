@@ -10,12 +10,13 @@ from Logger import log_distill_result
 
 
 class Server:
-    def __init__(self, client_list, total_unlabeled_data, user_num, item_num, test_data):
+    def __init__(self, client_list, total_unlabeled_data, user_num, item_num, test_data, logger):
         self.clients = client_list
         self.total_unlabeled_data = total_unlabeled_data
         self.user_num = user_num
         self.item_num = item_num
         self.test_data = test_data
+        self.logger = logger
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.distill_loss = nn.KLDivLoss(reduction='batchmean')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
@@ -57,7 +58,7 @@ class Server:
             loss, distill_loss = self.iterate(rnd)
 
             hit, ndcg = evaluate(self.model, self.test_data)
-            log_distill_result(rnd, distill_loss, hit, ndcg)
+            self.logger.log_distill_result(rnd, distill_loss, hit, ndcg)
             # evaluate model
             if rnd % Config.eval_every == 0:
                 hit, ndcg = evaluate(self.model, self.test_data)
