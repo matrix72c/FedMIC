@@ -7,12 +7,13 @@ from torch.optim.lr_scheduler import StepLR
 
 
 class Client:
-    def __init__(self, train_data, train_label, test_data, user_num, item_num, client_id=0):
+    def __init__(self, train_data, train_label, test_data, user_num, item_num, logger, client_id=0):
         self.train_data = train_data
         self.train_label = train_label
         self.test_data = test_data
         self.user_num = user_num
         self.item_num = item_num
+        self.logger = logger
         self.client_id = client_id
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
@@ -40,5 +41,5 @@ class Client:
                 loss, y_ = self.train_batch(x, y)
                 batch_loss_list.append(loss)
             self.schedule.step()
-            log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
+            self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
         return loss
