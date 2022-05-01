@@ -29,6 +29,8 @@ class Config:
     distill_learning_rate = 0.001
     distill_epochs = 5
     distill_pos_ratio = 1
+    lr_step = epochs
+    lr_decay = 0.9
 
 
 def get_ncf_data():
