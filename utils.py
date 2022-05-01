@@ -17,7 +17,6 @@ class Config:
     learning_rate = 0.001
     batch_size = 64
     epochs = 10
-    dropout = 0
     device = None
     rounds = 40000
     top_k = 10
@@ -29,6 +28,7 @@ class Config:
     distill_learning_rate = 0.001
     distill_epochs = 5
     distill_pos_ratio = 1
+    num_fake = 3
 
 
 def get_ncf_data():

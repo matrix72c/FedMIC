@@ -7,14 +7,14 @@ import random
 
 
 class Client:
-    def __init__(self, train_data, train_label, test_data, user_num, item_num, client_id=0, num_fake_id=5):
+    def __init__(self, train_data, train_label, test_data, user_num, item_num, client_id=0):
         self.train_data = train_data
         self.train_label = train_label
         self.test_data = test_data
         self.user_num = user_num
         self.item_num = item_num
         self.client_id = client_id
-        self.fake_id_list = [random.randint(0, self.user_num - 1) for _ in range(num_fake_id)]
+        self.fake_id_list = [random.randint(0, self.user_num - 1) for _ in range(Config.num_fake)]
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
