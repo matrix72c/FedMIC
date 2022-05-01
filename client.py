@@ -7,14 +7,14 @@ from torch.optim.lr_scheduler import StepLR
 
 
 class Client:
-    def __init__(self, train_data, train_label, test_data, user_num, item_num, client_id=0, mu=0):
+    def __init__(self, train_data, train_label, test_data, user_num, item_num, client_id=0):
         self.train_data = train_data
         self.train_label = train_label
         self.test_data = test_data
         self.user_num = user_num
         self.item_num = item_num
         self.client_id = client_id
-        self.mu = mu
+        self.mu = Config.mu
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)

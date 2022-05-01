@@ -26,6 +26,7 @@ class Config:
     eval_every = 500
     lr_step = epochs
     lr_decay = 0.9
+    mu = 0.2
 
 
 def get_ncf_data():
