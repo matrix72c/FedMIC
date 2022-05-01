@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 import scipy.sparse as sp
 from torch.utils.data import Dataset
+import os
 
 
 class Config:
@@ -31,6 +32,8 @@ class Config:
     distill_pos_ratio = 1
     lr_step = epochs
     lr_decay = 0.9
+    mu = 0.2
+    result_path = "./result/distill_"
 
 
 def get_ncf_data():
@@ -152,3 +155,25 @@ class NCFDataset(Dataset):
 
     def __len__(self):
         return len(self.data_x)
+
+
+class Logger():
+    """
+    Logger for train and test process
+    """
+
+    def __init__(self):
+        self.client_df = pd.DataFrame(columns=['client_id', 'local_epoch', 'loss'])
+        self.server_df = pd.DataFrame(columns=['round', 'distill_loss', 'hr@10', 'ndcg@10'])
+        self.client_df.to_csv(Config.result_path + "client.csv", index=False)
+        self.server_df.to_csv(Config.result_path + "server.csv", index=False)
+
+    def log_client_loss(self, client_id, local_epoch, loss):
+        self.client_df.loc[len(self.client_df)] = [client_id, local_epoch, loss]
+        if self.client_df.shape[1] % 100 == 0:
+            self.client_df.to_csv(Config.result_path+"client.csv", index=False, header=False, mode='a')
+
+    def log_distill_result(self, rnd, distill_loss, hr, hdcg):
+        self.server_df.loc[len(self.server_df)] = [rnd, distill_loss, hr, hdcg]
+        if self.server_df.shape[1] % 100 == 0:
+            self.server_df.to_csv(Config.result_path+"server.csv", index=False, header=False, mode='a')
