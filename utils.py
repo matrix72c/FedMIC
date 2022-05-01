@@ -24,6 +24,8 @@ class Config:
     model = "NeuMF"
     neg_pos_ratio = 4
     eval_every = 500
+    lr_step = epochs
+    lr_decay = 0.9
 
 
 def get_ncf_data():
