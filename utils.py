@@ -27,6 +27,7 @@ class Config:
     eval_every = 10
     distill_batch_size = 128
     distill_learning_rate = 0.001
+    distill_epochs = 10
 
 
 def get_ncf_data():
