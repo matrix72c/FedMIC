@@ -145,19 +145,17 @@ class Logger():
     """
 
     def __init__(self):
-        if os.path.exists(Config.result_path+"client.csv"):
-            os.remove(Config.result_path+"client.csv")
-        if os.path.exists(Config.result_path+"server.csv"):
-            os.remove(Config.result_path+"server.csv")
         self.client_df = pd.DataFrame(columns=['client_id', 'local_epoch', 'loss'])
         self.server_df = pd.DataFrame(columns=['round', 'distill_loss', 'hr@10', 'ndcg@10'])
+        self.client_df.to_csv(Config.result_path + "client.csv", index=False)
+        self.server_df.to_csv(Config.result_path + "server.csv", index=False)
 
     def log_client_loss(self, client_id, local_epoch, loss):
         self.client_df.loc[len(self.client_df)] = [client_id, local_epoch, loss]
         if self.client_df.shape[1] % 100 == 0:
-            self.client_df.to_csv(Config.result_path+"client.csv", index=False)
+            self.client_df.to_csv(Config.result_path+"client.csv", index=False, header=False, mode='a')
 
     def log_distill_result(self, rnd, distill_loss, hr, hdcg):
         self.server_df.loc[len(self.server_df)] = [rnd, distill_loss, hr, hdcg]
         if self.server_df.shape[1] % 100 == 0:
-            self.server_df.to_csv(Config.result_path+"server.csv", index=False)
+            self.server_df.to_csv(Config.result_path+"server.csv", index=False, header=False, mode='a')
