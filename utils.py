@@ -1,3 +1,4 @@
+from unittest import result
 import numpy as np
 import pandas as pd
 import torch
@@ -29,6 +30,9 @@ class Config:
     distill_epochs = 5
     distill_pos_ratio = 1
     num_fake = 3
+    result_path = "./result/obfus_"
+    lr_step = epochs
+    lr_decay = 0.9
 
 
 def get_ncf_data():

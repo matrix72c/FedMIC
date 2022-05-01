@@ -2,7 +2,7 @@ from torch import nn
 import torch.utils.data as Data
 from model import NCFModel
 from utils import *
-from Logger import log_client_loss
+from torch.optim.lr_scheduler import StepLR
 import random
 
 
@@ -18,6 +18,7 @@ class Client:
         self.fake_id_list = [random.randint(0, self.user_num - 1) for _ in range(Config.num_fake)]
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
+        self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
         self.loader = Data.DataLoader(self.dataset, batch_size=Config.batch_size, shuffle=True, num_workers=0)
 
