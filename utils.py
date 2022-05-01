@@ -153,10 +153,12 @@ class Logger():
 
     def log_client_loss(self, client_id, local_epoch, loss):
         self.client_df.loc[len(self.client_df)] = [client_id, local_epoch, loss]
-        if self.client_df.shape[1] % 100 == 0:
+        if self.client_df.shape[0] % 10000 == 0:
             self.client_df.to_csv(Config.result_path+"client.csv", index=False, header=False, mode='a')
+            self.client_df.drop(self.client_df.index, inplace=True)
 
     def log_distill_result(self, rnd, distill_loss, hr, hdcg):
         self.server_df.loc[len(self.server_df)] = [rnd, distill_loss, hr, hdcg]
-        if self.server_df.shape[1] % 100 == 0:
+        if self.server_df.shape[0] % 100 == 0:
             self.server_df.to_csv(Config.result_path+"server.csv", index=False, header=False, mode='a')
+            self.server_df.drop(self.server_df.index, inplace=True)
