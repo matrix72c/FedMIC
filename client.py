@@ -3,7 +3,7 @@ import torch.utils.data as Data
 from model import NCFModel
 from utils import *
 from Logger import log_client_loss
-import copy as copy
+from torch.optim.lr_scheduler import StepLR
 
 
 class Client:
@@ -17,6 +17,7 @@ class Client:
         self.mu = mu
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
+        self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
         self.loader = Data.DataLoader(self.dataset, batch_size=Config.batch_size, shuffle=True, num_workers=0)
 
@@ -46,5 +47,6 @@ class Client:
                 y = data[1].to(Config.device)
                 loss, y_ = self.train_batch(x, y, server_params)
                 batch_loss_list.append(loss)
+            self.schedule.step()
             log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
         return loss
