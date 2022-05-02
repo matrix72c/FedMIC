@@ -7,6 +7,7 @@ import torch.utils.data as Data
 import numpy as np
 from utils import *
 from torch import nn
+from torch.optim.lr_scheduler import StepLR
 from Logger import log_distill_result
 
 
@@ -19,6 +20,7 @@ class Server:
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.distill_loss_func = nn.KLDivLoss(reduction='batchmean')
         self.distill_optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
+        # self.schedule = StepLR(self.distill_optimizer, step_size=Config.distill_lr_step, gamma=Config.distill_lr_decay)
         self.logger = logger
 
     def iterate(self, rnd=0):  # rnd -> round
@@ -69,6 +71,8 @@ class Server:
                 self.distill_optimizer.step()
                 distill_batch_loss_list.append(batch_loss.item())
             distill_loss = np.mean(distill_batch_loss_list)
+        # if rnd % 50 == 49:
+        #     self.schedule.step()
         return np.mean(loss).item(), distill_loss.item()
 
     def run(self):

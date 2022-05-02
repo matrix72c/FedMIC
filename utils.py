@@ -29,7 +29,10 @@ class Config:
     distill_learning_rate = 0.001
     distill_epochs = 5
     distill_pos_ratio = 1
-    num_fake = 3
+    distill_lr_step = rounds
+    distill_lr_decay = 0.95
+    distill_weight_decay = 0.0001
+    num_fake = 1
     result_path = "./result/obfus_"
     lr_step = epochs
     lr_decay = 0.9
