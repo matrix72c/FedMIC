@@ -30,6 +30,7 @@ class Config:
     distill_learning_rate = 0.001
     distill_epochs = 5
     distill_pos_ratio = 1
+    distill_T = 3
     lr_step = epochs
     lr_decay = 0.9
     mu = 0.2

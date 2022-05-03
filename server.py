@@ -53,8 +53,8 @@ class Server:
 
                 self.distill_optimizer.zero_grad()
                 predict = self.model(batch)
-                logits_softmax = torch.softmax(logits, dim=0)
-                predict_softmax = torch.softmax(predict, dim=0)
+                logits_softmax = torch.softmax(logits / Config.distill_T, dim=0)
+                predict_softmax = torch.softmax(predict / Config.distill_T, dim=0)
                 batch_loss = self.distill_loss_func(predict_softmax.log(), logits_softmax)
                 batch_loss.backward()
                 self.distill_optimizer.step()

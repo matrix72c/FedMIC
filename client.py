@@ -58,7 +58,8 @@ class Client:
         total_logits = torch.tensor(total_logits)
 
         # get positive items
-        _, indices = torch.topk(total_logits, Config.distill_batch_size * Config.distill_pos_ratio)
+        num_positive = int(Config.distill_batch_size * Config.distill_pos_ratio)
+        _, indices = torch.topk(total_logits, num_positive)
         positive_data = total_data[indices]
         positive_logits = total_logits[indices]
 
@@ -67,7 +68,7 @@ class Client:
         total_logits = torch_delete(total_logits, indices)
 
         # get neg items id and corresponding logits
-        neg_samples = torch.randint(0, len(total_data), (int(Config.distill_batch_size * (1 - Config.distill_pos_ratio)),))
+        neg_samples = torch.randint(0, len(total_data), (Config.distill_batch_size - num_positive,))
         negative_data = total_data[neg_samples]
         negative_logits = total_logits[neg_samples]
 
