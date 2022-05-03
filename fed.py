@@ -3,7 +3,6 @@ from model import NCFModel
 from server import Server
 from utils import *
 from client import Client
-from Logger import init_logger
 
 
 def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, logger):
@@ -32,5 +31,4 @@ def main():
 
 
 if __name__ == "__main__":
-    init_logger()
     main()
