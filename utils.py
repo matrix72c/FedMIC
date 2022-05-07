@@ -29,10 +29,13 @@ class Config:
     distill_batch_size = 256
     distill_learning_rate = 0.001
     distill_epochs = 5
-    distill_pos_ratio = 1
+    distill_loss_threshold = 1e-5
+    distill_lr_step = 90
+    distill_lr_decay = 0.95
+    distill_pos_ratio = 0.5
     distill_T = 3
     lr_step = epochs
-    lr_decay = 0.9
+    lr_decay = 0.95
     mu = 0.2
     result_path = "./result/distill_"
 

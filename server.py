@@ -1,6 +1,8 @@
 import copy
 import random
 import time
+
+import torch
 from tqdm import tqdm
 from model import NCFModel
 import torch.utils.data as Data
@@ -8,6 +10,7 @@ import numpy as np
 from utils import *
 from torch import nn
 from Logger import log_distill_result
+from torch.optim.lr_scheduler import StepLR
 
 
 class Server:
@@ -19,6 +22,7 @@ class Server:
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.distill_loss_func = nn.KLDivLoss(reduction='batchmean')
         self.distill_optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.distill_learning_rate)
+        self.schedule = StepLR(self.distill_optimizer, step_size=Config.distill_lr_step, gamma=Config.distill_lr_decay)
         self.logger = logger
 
     def iterate(self, rnd=0):  # rnd -> round
@@ -44,7 +48,7 @@ class Server:
                 distill_logits = torch.cat((distill_logits, client_logits), dim=0)
 
         distill_data = Data.TensorDataset(distill_batch, distill_logits)
-        distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True)
+        distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True, drop_last=True)
         for _ in range(Config.distill_epochs):
             distill_batch_loss_list = []
             for batch, logits in distill_loader:
@@ -55,11 +59,15 @@ class Server:
                 predict = self.model(batch)
                 logits_softmax = torch.softmax(logits / Config.distill_T, dim=0)
                 predict_softmax = torch.softmax(predict / Config.distill_T, dim=0)
-                batch_loss = self.distill_loss_func(predict_softmax.log(), logits_softmax)
+                no_zero = torch.where(predict_softmax == 0, predict_softmax + 1e-10, predict_softmax)
+                batch_loss = self.distill_loss_func(no_zero.log(), logits_softmax)
                 batch_loss.backward()
                 self.distill_optimizer.step()
                 distill_batch_loss_list.append(batch_loss.item())
             distill_loss = np.mean(distill_batch_loss_list)
+            if distill_loss < Config.distill_loss_threshold:
+                break
+        self.schedule.step()
         return np.mean(loss).item(), distill_loss.item()
 
     def run(self):
