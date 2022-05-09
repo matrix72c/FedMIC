@@ -31,10 +31,10 @@ class Server:
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss_list.append(client.train())
+        distill_batch = random.sample(self.total_unlabeled_data, Config.distill_batch_size)
+        distill_batch = torch.tensor(distill_batch).to(Config.device)
 
         for _ in range(Config.distill_epochs):
-            distill_batch = random.sample(self.total_unlabeled_data, Config.distill_batch_size)
-            distill_batch = torch.tensor(distill_batch).to(Config.device)
             # distill_batch = torch.tensor([[random.randint(0, self.user_num - 1), 
                                         #    random.randint(0, self.item_num - 1)] 
                                         #    for _ in  range(Config.distill_batch_size)]
@@ -43,9 +43,9 @@ class Server:
             for client in clients:
                 logits_list.append(client.model(distill_batch))
             client_logits = sum(logits_list) / len(logits_list)
-            client_softmax = F.softmax(client_logits, dim=0)
+            client_softmax = F.softmax(client_logits / 3, dim=0)
             prediction_logits = self.model(distill_batch)
-            prediction_softmax = F.softmax(prediction_logits, dim=0)
+            prediction_softmax = F.softmax(prediction_logits / 3, dim=0)
             self.optimizer.zero_grad()
             loss = self.distill_loss(prediction_softmax.log(), client_softmax)
             loss.backward()

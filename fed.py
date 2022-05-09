@@ -2,7 +2,6 @@ from model import NCFModel
 from server import Server
 from utils import *
 from client import Client
-from Logger import init_logger
 
 
 def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, logger):
@@ -26,10 +25,9 @@ def main():
     user_num, item_num, train_data, train_label, test_data, pos_num = get_ncf_data()
     clients_train_data, clients_train_label = distribute_data(train_data, train_label, user_num)
     client_list = get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, logger)
-    server = Server(client_list, user_num, item_num, test_data, logger)
+    server = Server(client_list, train_data, user_num, item_num, test_data, logger)
     server.run()
 
 
 if __name__ == "__main__":
-    init_logger()
     main()
