@@ -35,20 +35,33 @@ class Server:
         loss = []
         distill_loss = None
         distill_batch = None
-        distill_logits = None
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss.append(client.train())
-            client_batch, client_logits = client.get_distill_batch()
+            client_batch, _ = client.get_distill_batch()
             if distill_batch is None:
                 distill_batch = client_batch
-                distill_logits = client_logits
             else:
                 distill_batch = torch.cat((distill_batch, client_batch), dim=0)
-                distill_logits = torch.cat((distill_logits, client_logits), dim=0)
+
+        # get avg logits
+        distill_data = Data.TensorDataset(distill_batch, torch.tensor([0 for _ in range(distill_batch.shape[0])]))
+        distill_loader = Data.DataLoader(distill_data, batch_size=Config.distill_batch_size, shuffle=False)
+        logits_list = []
+        for client in clients:
+            client_logits = []
+            for batch, _ in distill_loader:
+                batch = batch.to(Config.device)
+                pred = client.model(batch)
+                client_logits.extend(pred.detach().cpu().numpy())
+            client_logits = torch.tensor(client_logits)
+            logits_list.append(client_logits)
+        avg_logits = sum(logits_list) / len(logits_list)
+        distill_logits = avg_logits
 
         distill_data = Data.TensorDataset(distill_batch, distill_logits)
         distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True, drop_last=True)
+
         for _ in range(Config.distill_epochs):
             distill_batch_loss_list = []
             for batch, logits in distill_loader:
