@@ -37,7 +37,8 @@ class Config:
     lr_step = epochs
     lr_decay = 0.95
     mu = 0.2
-    result_path = "./result/distill_"
+    fake_user_num = 3
+    result_path = "./result/obfus_"
 
 
 def get_ncf_data():

@@ -4,6 +4,7 @@ from model import NCFModel
 from utils import *
 from Logger import log_client_loss
 from torch.optim.lr_scheduler import StepLR
+import random
 
 
 class Client:
@@ -15,6 +16,7 @@ class Client:
         self.item_num = item_num
         self.logger = logger
         self.client_id = client_id
+        self.fake_id_list = [random.randint(0, self.user_num - 1) for _ in range(Config.fake_user_num)]
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)
@@ -75,4 +77,22 @@ class Client:
         # concat positive and negative samples
         client_batch = torch.cat([positive_data, negative_data], dim=0)
         client_logits = torch.cat([positive_logits, negative_logits], dim=0)
+
+        # add obfuscation
+        obfuscate_list = []
+        obfuscate_size = len(client_batch)
+        for fake_id in self.fake_id_list:
+            obfuscate_list.extend([[fake_id, random.randint(0, self.item_num - 1)] for _ in range(obfuscate_size)])
+        obfuscate_data = torch.tensor(obfuscate_list)
+        obfuscate_logits = []
+        obfuscate_dataset = NCFDataset(obfuscate_data, [1. for _ in range(len(obfuscate_list))])
+        obfuscate_dataloader = Data.DataLoader(obfuscate_dataset, batch_size=Config.batch_size, shuffle=False)
+        for data, label in obfuscate_dataloader:
+            data = data.to(Config.device)
+            pred = self.model(data)
+            obfuscate_logits.extend(pred.detach().cpu().numpy())
+        obfuscate_logits = torch.tensor(obfuscate_logits)
+        client_batch = torch.cat([client_batch, obfuscate_data], dim=0)
+        client_logits = torch.cat([client_logits, obfuscate_logits], dim=0)
+
         return client_batch, client_logits
