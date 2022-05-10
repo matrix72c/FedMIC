@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 import scipy.sparse as sp
 from torch.utils.data import Dataset
+import json
 import os
 
 
@@ -27,7 +28,7 @@ class Config:
     eval_every = 500
     lr_step = epochs
     lr_decay = 0.9
-    result_path = "./result/fedavg_"
+    result_path = "./result/fedavg/"
 
 
 def get_ncf_data():
@@ -145,10 +146,13 @@ class Logger():
     """
 
     def __init__(self):
+        if not os.path.exists(Config.result_path):
+            os.makedirs(Config.result_path)
         self.client_df = pd.DataFrame(columns=['client_id', 'local_epoch', 'loss'])
         self.server_df = pd.DataFrame(columns=['round', 'distill_loss', 'hr@10', 'ndcg@10'])
         self.client_df.to_csv(Config.result_path + "client.csv", index=False)
         self.server_df.to_csv(Config.result_path + "server.csv", index=False)
+        json.dump(Config.__dict__, open(Config.result_path + "config.json", "w"))
 
     def log_client_loss(self, client_id, local_epoch, loss):
         self.client_df.loc[len(self.client_df)] = [client_id, local_epoch, loss]
