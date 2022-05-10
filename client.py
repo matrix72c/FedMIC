@@ -16,7 +16,7 @@ class Client:
         self.logger = logger
         self.client_id = client_id
         self.mu = Config.mu
-        self.model = NCFModel(user_num, item_num).to(Config.device)
+        self.model = NCFModel(user_num, item_num)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
@@ -34,6 +34,7 @@ class Client:
         return loss.item(), y_.detach()
 
     def train(self, server_state_dict):
+        self.model = self.model.to(Config.device)
         self.model.load_state_dict(server_state_dict)
         server_model = NCFModel(self.user_num, self.item_num).to(Config.device)
         server_model.load_state_dict(server_state_dict)
@@ -50,4 +51,5 @@ class Client:
                 batch_loss_list.append(loss)
             self.schedule.step()
             self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
+        self.model = self.model.to("cpu")
         return loss
