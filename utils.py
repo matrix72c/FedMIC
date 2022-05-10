@@ -18,7 +18,6 @@ class Config:
     learning_rate = 0.001
     batch_size = 64
     epochs = 10
-    dropout = 0
     device = None
     rounds = 40000
     top_k = 10
@@ -32,7 +31,7 @@ class Config:
     distill_loss_threshold = 1e-5
     distill_lr_step = 90
     distill_lr_decay = 0.95
-    distill_pos_ratio = 0.5
+    distill_pos_ratio = 0.25
     distill_T = 3
     lr_step = epochs
     lr_decay = 0.95
