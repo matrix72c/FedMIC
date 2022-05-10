@@ -152,7 +152,10 @@ class Logger():
         self.server_df = pd.DataFrame(columns=['round', 'distill_loss', 'hr@10', 'ndcg@10'])
         self.client_df.to_csv(Config.result_path + "client.csv", index=False)
         self.server_df.to_csv(Config.result_path + "server.csv", index=False)
-        json.dump(Config.__dict__, open(Config.result_path + "config.json", "w"))
+        dict_ = dict(Config.__dict__)
+        dict_.pop("__dict__")
+        dict_.pop("__weakref__")
+        json.dump(dict_, open(Config.result_path + "config.json", "w"))
 
     def log_client_loss(self, client_id, local_epoch, loss):
         self.client_df.loc[len(self.client_df)] = [client_id, local_epoch, loss]
