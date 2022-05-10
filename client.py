@@ -15,7 +15,7 @@ class Client:
         self.item_num = item_num
         self.logger = logger
         self.client_id = client_id
-        self.model = NCFModel(user_num, item_num).to(Config.device)
+        self.model = NCFModel(user_num, item_num)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
@@ -30,6 +30,7 @@ class Client:
         return loss.item(), y_.detach()
 
     def train(self):
+        self.model = self.model.to(Config.device)
         self.model.train()
         epochs = Config.epochs
         loss = 0
@@ -42,6 +43,7 @@ class Client:
                 batch_loss_list.append(loss)
             self.schedule.step()
             self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
+        self.model = self.model.to("cpu")
         return loss
 
     def get_distill_batch(self):
