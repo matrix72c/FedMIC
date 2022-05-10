@@ -24,6 +24,7 @@ def main():
     torch.backends.cudnn.benchmark = True
     Config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     user_num, item_num, train_data, train_label, test_data = get_ncf_data()
+    Config.distill_lr_step = user_num // Config.sample_size
     clients_train_data, clients_train_label = distribute_data(train_data, train_label, user_num)
     client_list = get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, logger)
     server = Server(client_list, user_num, item_num, test_data, logger)
