@@ -11,8 +11,8 @@ class Config:
     """
     General configuration
     """
-    train_data_path = "data/ml-100k.train.rating"
-    test_data_path = "data/ml-100k.test.negative"
+    train_data_path = "data/ml-1m.train.rating"
+    test_data_path = "data/ml-1m.test.negative"
     factor_num = 32
     num_layers = 3
     dropout = 0
@@ -28,7 +28,7 @@ class Config:
     eval_every = 500
     lr_step = epochs
     lr_decay = 0.9
-    result_path = "./result/fedavg/"
+    result_path = "./result/fedavg-1m/"
 
 
 def get_ncf_data():
