@@ -11,14 +11,14 @@ class Config:
     """
     General configuration
     """
-    train_data_path = "data/ml-1m.train.rating"
-    test_data_path = "data/ml-1m.test.negative"
+    train_data_path = "data/ml-100k.train.rating"
+    test_data_path = "data/ml-100k.test.negative"
     factor_num = 32
     num_layers = 3
     dropout = 0
     learning_rate = 0.001
     batch_size = 64
-    epochs = 10
+    epochs = 20
     device = None
     rounds = 40000
     top_k = 10
@@ -37,7 +37,7 @@ class Config:
     lr_step = epochs
     lr_decay = 0.95
     mu = 0.2
-    result_path = "./result/distill-1m/"
+    result_path = "./result/distill-100k-epochs20/"
 
 
 def get_ncf_data():
