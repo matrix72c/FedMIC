@@ -43,12 +43,16 @@ class Server:
         distill_batch = torch.tensor([], dtype=torch.int)
         total_dataset = NCFDataset(random_batch, [1. for _ in range(len(random_batch))])
         total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
+        logits_list = []
         for client in clients:
+            logits = []
             for data, label in total_dataloader:
-                distill_batch = torch.cat((distill_batch, data), 0)
                 data = data.to(Config.device)
                 pred = client.model(data)
-                distill_logits = torch.cat((distill_logits, pred.detach().cpu()), 0)
+                logits.extend(pred.detach().cpu().numpy())
+            logits_list.append(torch.tensor(logits))
+        distill_batch = random_batch
+        distill_logits = sum(logits_list) / len(logits_list)
 
         distill_data = Data.TensorDataset(distill_batch, distill_logits)
         distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True, drop_last=True)
