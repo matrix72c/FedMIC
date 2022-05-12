@@ -18,7 +18,7 @@ class Config:
     dropout = 0
     learning_rate = 0.001
     batch_size = 64
-    epochs = 20
+    epochs = 5
     device = None
     rounds = 40000
     top_k = 10
@@ -37,7 +37,7 @@ class Config:
     lr_step = epochs
     lr_decay = 0.95
     mu = 0.2
-    result_path = "./result/distill-100k-epochs20/"
+    result_path = "./result/distill-100k-epochs5/"
 
 
 def get_ncf_data():
@@ -161,12 +161,13 @@ class NCFDataset(Dataset):
         return len(self.data_x)
 
 
-class Logger():
+class Logger:
     """
     Logger for train and test process
     """
 
     def __init__(self):
+
         if not os.path.exists(Config.result_path):
             os.makedirs(Config.result_path)
         self.client_df = pd.DataFrame(columns=['client_id', 'local_epoch', 'loss'])
