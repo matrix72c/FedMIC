@@ -14,8 +14,9 @@ from torch.optim.lr_scheduler import StepLR
 
 
 class Server:
-    def __init__(self, client_list, user_num, item_num, test_data, logger):
+    def __init__(self, client_list, train_data, user_num, item_num, test_data, logger):
         self.clients = client_list
+        self.train_data = train_data
         self.user_num = user_num
         self.item_num = item_num
         self.test_data = test_data
@@ -34,18 +35,20 @@ class Server:
         clients = random.sample(self.clients, Config.sample_size)
         loss = []
         distill_loss = None
-        distill_batch = None
-        distill_logits = None
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss.append(client.train())
-            client_batch, client_logits = client.get_distill_batch()
-            if distill_batch is None:
-                distill_batch = client_batch
-                distill_logits = client_logits
-            else:
-                distill_batch = torch.cat((distill_batch, client_batch), dim=0)
-                distill_logits = torch.cat((distill_logits, client_logits), dim=0)
+        random_batch = torch.tensor(random.sample(self.train_data, len(clients) * Config.distill_batch_size))
+        distill_logits = torch.tensor([])
+        distill_batch = torch.tensor([], dtype=torch.int)
+        total_dataset = NCFDataset(random_batch, [1. for _ in range(len(random_batch))])
+        total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
+        for client in clients:
+            for data, label in total_dataloader:
+                distill_batch = torch.cat((distill_batch, data), 0)
+                data = data.to(Config.device)
+                pred = client.model(data)
+                distill_logits = torch.cat((distill_logits, pred.detach().cpu()), 0)
 
         distill_data = Data.TensorDataset(distill_batch, distill_logits)
         distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True, drop_last=True)

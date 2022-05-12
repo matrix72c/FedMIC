@@ -27,7 +27,7 @@ def main():
     Config.distill_lr_step = user_num // Config.sample_size
     clients_train_data, clients_train_label = distribute_data(train_data, train_label, user_num)
     client_list = get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, logger)
-    server = Server(client_list, user_num, item_num, test_data, logger)
+    server = Server(client_list, train_data, user_num, item_num, test_data, logger)
     server.run()
 
 
