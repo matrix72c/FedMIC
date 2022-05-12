@@ -38,7 +38,7 @@ class Server:
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss.append(client.train())
-        random_batch = torch.tensor(random.sample(self.train_data, len(clients) * Config.distill_batch_size))
+        random_batch = torch.tensor(random.sample(self.train_data, len(clients)))
         distill_logits = torch.tensor([])
         distill_batch = torch.tensor([], dtype=torch.int)
         total_dataset = NCFDataset(random_batch, [1. for _ in range(len(random_batch))])
