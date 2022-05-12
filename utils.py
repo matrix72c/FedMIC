@@ -37,7 +37,7 @@ class Config:
     lr_step = epochs
     lr_decay = 0.95
     mu = 0.2
-    result_path = "./result/distill-100k-epochs5/"
+    result_path = "./result/rand-distill/"
 
 
 def get_ncf_data():
