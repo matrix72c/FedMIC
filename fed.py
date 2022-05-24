@@ -1,8 +1,8 @@
-from asyncio.log import logger
-from model import NCFModel
+import argparse
 from server import Server
 from utils import *
 from client import Client
+import time
 
 
 def get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, logger):
@@ -27,9 +27,28 @@ def main():
     Config.distill_lr_step = user_num // Config.sample_size
     clients_train_data, clients_train_label = distribute_data(train_data, train_label, user_num)
     client_list = get_clients(clients_train_data, clients_train_label, test_data, user_num, item_num, logger)
-    server = Server(client_list, user_num, item_num, test_data, logger)
+    server = Server(client_list, train_data, user_num, item_num, test_data, logger)
     server.run()
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fed_method", type=str, default=None)  # FedDD rand-avg rand-direct FedAvg FedProx
+    parser.add_argument("--T", type=int, default=None)
+    parser.add_argument("--sample_size", type=int, default=None)
+    parser.add_argument("--result_path", type=str, default="./result/"
+                                                           + time.strftime('%Y%m%d-%H%M%S', time.localtime(time.time()))
+                                                           + '/')
+    parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--model", type=str, default=None)
+    parser.add_argument("--distill_pos_ratio", type=int, default=None)
+    parsed_args = parser.parse_args()
+    Config.fed_method = parsed_args.fed_method if parsed_args.fed_method is not None else Config.fed_method
+    Config.distill_T = parsed_args.T if parsed_args.T is not None else Config.distill_T
+    Config.sample_size = parsed_args.sample_size if parsed_args.sample_size is not None else Config.sample_size
+    Config.result_path = parsed_args.result_path if parsed_args.result_path is not None else Config.result_path
+    Config.epochs = parsed_args.epochs if parsed_args.epochs is not None else Config.epochs
+    Config.model = parsed_args.model if parsed_args.model is not None else Config.model
+    Config.distill_pos_ratio = parsed_args.distill_pos_ratio \
+        if parsed_args.distill_pos_ratio is not None else Config.distill_pos_ratio
     main()

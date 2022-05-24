@@ -24,6 +24,7 @@ class Config:
     top_k = 10
     sample_size = 10
     model = "NeuMF"
+    fed_method = "FedDD"
     neg_pos_ratio = 4
     eval_every = 50
     distill_batch_size = 256
@@ -167,9 +168,11 @@ class Logger:
     """
 
     def __init__(self):
-
         if not os.path.exists(Config.result_path):
             os.makedirs(Config.result_path)
+        else:
+            print("result path existed! ", Config.result_path)
+            exit(0)
         self.client_df = pd.DataFrame(columns=['client_id', 'local_epoch', 'loss'])
         self.server_df = pd.DataFrame(columns=['round', 'distill_loss', 'hr@10', 'ndcg@10'])
         self.client_df.to_csv(Config.result_path + "client.csv", index=False)

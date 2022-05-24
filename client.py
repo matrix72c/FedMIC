@@ -1,3 +1,5 @@
+import copy
+
 from torch import nn
 import torch.utils.data as Data
 from model import NCFModel
@@ -7,7 +9,7 @@ from torch.optim.lr_scheduler import StepLR
 
 
 class Client:
-    def __init__(self, train_data, train_label, test_data, user_num, item_num, logger, client_id=0):
+    def __init__(self, train_data, train_label, test_data, user_num, item_num, logger, client_id=0, mu=0):
         self.train_data = train_data
         self.train_label = train_label
         self.test_data = test_data
@@ -15,6 +17,7 @@ class Client:
         self.item_num = item_num
         self.logger = logger
         self.client_id = client_id
+        self.mu = mu
         self.model = NCFModel(user_num, item_num).to(Config.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)
@@ -29,19 +32,42 @@ class Client:
         self.optimizer.zero_grad()
         return loss.item(), y_.detach()
 
+    def prox_train(self, x, y, server_params):
+        y_ = self.model(x)
+        proximal_term = 0.0
+        for w, w_t in zip(self.model.parameters(), server_params):
+            proximal_term += (w - w_t).norm(2)
+        loss = nn.BCEWithLogitsLoss()(y_, y) + (self.mu / 2) * proximal_term
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        return loss.item(), y_.detach()
+
     def train(self):
         self.model.train()
         epochs = Config.epochs
         loss = 0
-        for epoch in range(epochs):
-            batch_loss_list = []
-            for data in self.loader:
-                x = data[0].to(Config.device)
-                y = data[1].to(Config.device)
-                loss, y_ = self.train_batch(x, y)
-                batch_loss_list.append(loss)
-            self.schedule.step()
-            self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
+        if Config.fed_method == "FedProx":
+            server_model = copy.deepcopy(self.model)
+            for epoch in range(epochs):
+                batch_loss_list = []
+                for data in self.loader:
+                    x = data[0].to(Config.device)
+                    y = data[1].to(Config.device)
+                    loss, y_ = self.prox_train(x, y, server_model.parameters())
+                    batch_loss_list.append(loss)
+                self.schedule.step()
+                self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
+        else:
+            for epoch in range(epochs):
+                batch_loss_list = []
+                for data in self.loader:
+                    x = data[0].to(Config.device)
+                    y = data[1].to(Config.device)
+                    loss, y_ = self.train_batch(x, y)
+                    batch_loss_list.append(loss)
+                self.schedule.step()
+                self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
         return loss
 
     def get_distill_batch(self):

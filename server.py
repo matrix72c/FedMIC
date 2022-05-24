@@ -1,3 +1,4 @@
+import configparser
 import copy
 import random
 import time
@@ -14,8 +15,9 @@ from torch.optim.lr_scheduler import StepLR
 
 
 class Server:
-    def __init__(self, client_list, user_num, item_num, test_data, logger):
+    def __init__(self, client_list, train_data, user_num, item_num, test_data, logger):
         self.clients = client_list
+        self.train_data = train_data
         self.user_num = user_num
         self.item_num = item_num
         self.test_data = test_data
@@ -39,14 +41,66 @@ class Server:
         for client in clients:
             client.model.load_state_dict(self.model.state_dict())
             loss.append(client.train())
-            client_batch, client_logits = client.get_distill_batch()
-            if distill_batch is None:
-                distill_batch = client_batch
-                distill_logits = client_logits
-            else:
-                distill_batch = torch.cat((distill_batch, client_batch), dim=0)
-                distill_logits = torch.cat((distill_logits, client_logits), dim=0)
 
+        if Config.fed_method == "FedAvg" or Config.fed_method == "FedProx":
+            models_dict = []
+            for client in clients:
+                models_dict.append(client.model.state_dict())
+            server_new_dict = copy.deepcopy(models_dict[0])
+            for i in range(1, len(models_dict)):
+                client_dict = models_dict[i]
+                for k in client_dict.keys():
+                    server_new_dict[k] += client_dict[k]
+            for k in server_new_dict.keys():
+                server_new_dict[k] /= len(models_dict)
+            self.model.load_state_dict(server_new_dict)
+            return np.mean(loss).item(), 0
+
+        # ONLY fed distill method reach here
+        assert Config.fed_method != "FedAvg" and Config.fed_method != "FedProx"
+        if Config.fed_method == "FedDD":
+            for client in clients:
+                client_batch, client_logits = client.get_distill_batch()
+                if distill_batch is None:
+                    distill_batch = client_batch
+                    distill_logits = client_logits
+                else:
+                    distill_batch = torch.cat((distill_batch, client_batch), dim=0)
+                    distill_logits = torch.cat((distill_logits, client_logits), dim=0)
+        elif Config.fed_method == "rand-avg":
+            random_batch = torch.tensor(random.sample(self.train_data, len(clients) * Config.distill_batch_size))
+            total_dataset = NCFDataset(random_batch, [1. for _ in range(len(random_batch))])
+            total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
+            logits_list = []
+            for client in clients:
+                logits = []
+                for data, label in total_dataloader:
+                    data = data.to(Config.device)
+                    pred = client.model(data)
+                    logits.extend(pred.detach().cpu().numpy())
+                logits_list.append(torch.tensor(logits))
+            distill_batch = random_batch
+            distill_logits = sum(logits_list) / len(logits_list)
+        elif Config.fed_method == "rand-direct":
+            random_batch = torch.tensor(random.sample(self.train_data, Config.distill_batch_size))
+            total_dataset = NCFDataset(random_batch, [1. for _ in range(len(random_batch))])
+            total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
+            distill_batch = torch.tensor([], dtype=torch.int).to(Config.device)
+            distill_logits = torch.tensor([]).to(Config.device)
+            for client in clients:
+                for data, label in total_dataloader:
+                    data = data.to(Config.device)
+                    pred = client.model(data)
+                    distill_batch = torch.cat((distill_batch, data), 0)
+                    distill_logits = torch.cat((distill_logits, pred.detach()), 0)
+            distill_batch = distill_batch.cpu()
+            distill_logits = distill_logits.cpu()
+            pass
+        else:
+            print("Invalid Method: ", Config.fed_method, "!")
+            exit(0)
+        assert distill_batch is not None
+        assert distill_logits is not None
         distill_data = Data.TensorDataset(distill_batch, distill_logits)
         distill_loader = Data.DataLoader(distill_data, batch_size=Config.batch_size, shuffle=True, drop_last=True)
         for _ in range(Config.distill_epochs):
