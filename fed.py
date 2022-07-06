@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--model", type=str, default=None)
     parser.add_argument("--distill_pos_ratio", type=int, default=None)
+    parser.add_argument("--dataset", type=str, default=None)
     parsed_args = parser.parse_args()
     Config.fed_method = parsed_args.fed_method if parsed_args.fed_method is not None else Config.fed_method
     Config.distill_T = parsed_args.T if parsed_args.T is not None else Config.distill_T
@@ -49,6 +50,10 @@ if __name__ == "__main__":
     Config.result_path = parsed_args.result_path if parsed_args.result_path is not None else Config.result_path
     Config.epochs = parsed_args.epochs if parsed_args.epochs is not None else Config.epochs
     Config.model = parsed_args.model if parsed_args.model is not None else Config.model
-    Config.distill_pos_ratio = parsed_args.distill_pos_ratio \
-        if parsed_args.distill_pos_ratio is not None else Config.distill_pos_ratio
+    Config.distill_pos_ratio = parsed_args.distill_pos_ratio if parsed_args.distill_pos_ratio is not None \
+        else Config.distill_pos_ratio
+    Config.test_data_path = "data/" + parsed_args.dataset + ".test.negative" if parsed_args.dataset is not None \
+        else Config.test_data_path
+    Config.train_data_path = "data/" + parsed_args.dataset + ".train.rating" if parsed_args.dataset is not None \
+        else Config.train_data_path
     main()
