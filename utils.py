@@ -19,6 +19,7 @@ class Config:
     learning_rate = 0.001
     batch_size = 64
     epochs = 5
+    local_loss_threshold = 1e-5
     device = None
     rounds = 40000
     top_k = 10

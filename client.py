@@ -56,6 +56,9 @@ class Client:
                     y = data[1].to(Config.device)
                     loss, y_ = self.prox_train(x, y, server_model.parameters())
                     batch_loss_list.append(loss)
+                mean_loss = np.mean(batch_loss_list)
+                if mean_loss < Config.local_loss_threshold:
+                    break
                 self.schedule.step()
                 self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
         else:
@@ -66,6 +69,9 @@ class Client:
                     y = data[1].to(Config.device)
                     loss, y_ = self.train_batch(x, y)
                     batch_loss_list.append(loss)
+                mean_loss = np.mean(batch_loss_list)
+                if mean_loss < Config.local_loss_threshold:
+                    break
                 self.schedule.step()
                 self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
         return loss
