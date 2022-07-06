@@ -18,7 +18,7 @@ class Client:
         self.logger = logger
         self.client_id = client_id
         self.mu = mu
-        self.model = NCFModel(user_num, item_num).to(Config.device)
+        self.model = NCFModel(user_num, item_num)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=Config.learning_rate)
         self.schedule = StepLR(self.optimizer, step_size=Config.lr_step, gamma=Config.lr_decay)
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
@@ -44,6 +44,7 @@ class Client:
         return loss.item(), y_.detach()
 
     def train(self):
+        self.model = self.model.to(Config.device)
         self.model.train()
         epochs = Config.epochs
         loss = 0
@@ -74,9 +75,11 @@ class Client:
                     break
                 self.schedule.step()
                 self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
+        self.model = self.model.cpu()
         return loss
 
     def get_distill_batch(self):
+        self.model = self.model.to(Config.device)
         self.model.eval()
         # predict all items
         total_data = torch.tensor([[self.client_id, i] for i in range(self.item_num)])
@@ -107,4 +110,5 @@ class Client:
         # concat positive and negative samples
         client_batch = torch.cat([positive_data, negative_data], dim=0)
         client_logits = torch.cat([positive_logits, negative_logits], dim=0)
+        self.model = self.model.cpu()
         return client_batch, client_logits
