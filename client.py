@@ -25,32 +25,13 @@ class Client:
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
         self.loader = Data.DataLoader(self.dataset, batch_size=Config.batch_size, shuffle=True, num_workers=0)
 
-    def train_batch(self, x, y, optimizer):
-        y_ = self.model(x)
-        loss = nn.BCEWithLogitsLoss()(y_, y)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        return loss.item(), y_.detach()
-
-    def prox_train(self, x, y, server_params, optimizer):
-        y_ = self.model(x)
-        proximal_term = 0.0
-        for w, w_t in zip(self.model.parameters(), server_params):
-            proximal_term += (w - w_t).norm(2)
-        loss = nn.BCEWithLogitsLoss()(y_, y) + (self.mu / 2) * proximal_term
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        return loss.item(), y_.detach()
-
     def train(self):
         self.model = self.model.to(Config.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         self.model.train()
         epochs = Config.epochs
         server_model = copy.deepcopy(self.model)
-        loss = 0
+        mean_loss = 0
         for epoch in range(epochs):
             batch_loss_list = []
             for data in self.loader:
