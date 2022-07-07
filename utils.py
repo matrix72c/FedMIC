@@ -27,7 +27,7 @@ class Config:
     model = "NeuMF"
     fed_method = "FedDD"
     neg_pos_ratio = 4
-    eval_every = 50
+    eval_every = 1
     distill_batch_size = 256
     distill_learning_rate = 0.001
     distill_epochs = 5
