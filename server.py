@@ -39,7 +39,7 @@ class Server:
         distill_batch = None
         distill_logits = None
         for client in clients:
-            client.model.load_state_dict(self.model.state_dict())
+            client.model_state_dict = self.model.state_dict()
             loss.append(client.train())
 
         if Config.fed_method == "FedAvg" or Config.fed_method == "FedProx":

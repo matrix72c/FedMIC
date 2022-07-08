@@ -19,28 +19,33 @@ class Client:
         self.logger = logger
         self.client_id = client_id
         self.mu = mu
-        self.model = NCFModel(user_num, item_num)
+        self.model_state_dict = None
         self.lr = Config.learning_rate
         self.lr_count = 0
         self.dataset = NCFDataset(torch.tensor(train_data).to(torch.long), torch.tensor(train_label).to(torch.float32))
         self.loader = Data.DataLoader(self.dataset, batch_size=Config.batch_size, shuffle=True, num_workers=0)
 
     def train(self):
-        self.model = self.model.to(Config.device)
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        self.model.train()
+        model = NCFModel(self.user_num, self.item_num).to(Config.device)
+        assert self.model_state_dict is not None
+        model.load_state_dict(self.model_state_dict)
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
+        model.train()
         epochs = Config.epochs
-        server_model = copy.deepcopy(self.model)
         mean_loss = 0
+        server_model = None
+        if Config.fed_method == "FedProx":
+            server_model = NCFModel(self.user_num, self.item_num).to(Config.device)
+            server_model.load_state_dict(model.state_dict())
         for epoch in range(epochs):
             batch_loss_list = []
             for data in self.loader:
                 x = data[0].to(Config.device)
                 y = data[1].to(Config.device)
-                y_ = self.model(x)
+                y_ = model(x)
                 if Config.fed_method == "FedProx":
                     proximal_term = 0.0
-                    for w, w_t in zip(self.model.parameters(), server_model.parameters()):
+                    for w, w_t in zip(model.parameters(), server_model.parameters()):
                         proximal_term += (w - w_t).norm(2)
                     loss = nn.BCEWithLogitsLoss()(y_, y) + (self.mu / 2) * proximal_term
                 else:
@@ -55,17 +60,18 @@ class Client:
             if self.lr_count == Config.lr_step:
                 self.lr_count = 0
                 self.lr = self.lr * Config.lr_decay
-                optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+                optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
             # early stop
             if mean_loss < Config.local_loss_threshold:
                 break
             self.logger.log_client_loss(self.client_id, epoch, np.mean(batch_loss_list).item())
-        self.model = self.model.cpu()
+        self.model_state_dict = model.state_dict()
         return mean_loss
 
     def get_distill_batch(self):
-        self.model = self.model.to(Config.device)
-        self.model.eval()
+        model = NCFModel(self.user_num, self.item_num).to(Config.device)
+        assert self.model_state_dict is not None
+        model.load_state_dict(self.model_state_dict)
         # predict all items
         total_data = torch.tensor([[self.client_id, i] for i in range(self.item_num)])
         total_logits = []
@@ -73,7 +79,7 @@ class Client:
         total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
         for data, label in total_dataloader:
             data = data.to(Config.device)
-            pred = self.model(data)
+            pred = model(data)
             total_logits.extend(pred.detach().cpu().numpy())
         total_logits = torch.tensor(total_logits)
 
@@ -95,5 +101,4 @@ class Client:
         # concat positive and negative samples
         client_batch = torch.cat([positive_data, negative_data], dim=0)
         client_logits = torch.cat([positive_logits, negative_logits], dim=0)
-        self.model = self.model.cpu()
         return client_batch, client_logits
