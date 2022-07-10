@@ -45,7 +45,7 @@ class Server:
         if Config.fed_method == "FedAvg" or Config.fed_method == "FedProx":
             models_dict = []
             for client in clients:
-                models_dict.append(client.model.state_dict())
+                models_dict.append(client.model_state_dict)
             server_new_dict = copy.deepcopy(models_dict[0])
             for i in range(1, len(models_dict)):
                 client_dict = models_dict[i]
@@ -74,9 +74,11 @@ class Server:
             logits_list = []
             for client in clients:
                 logits = []
+                client_model = NCFModel(self.user_num, self.item_num).to(Config.device)
+                client_model.load_state_dict(client.model_state_dict)
                 for data, label in total_dataloader:
                     data = data.to(Config.device)
-                    pred = client.model(data)
+                    pred = client_model(data)
                     logits.extend(pred.detach().cpu().numpy())
                 logits_list.append(torch.tensor(logits))
             distill_batch = random_batch
@@ -88,9 +90,11 @@ class Server:
             distill_batch = torch.tensor([], dtype=torch.int).to(Config.device)
             distill_logits = torch.tensor([]).to(Config.device)
             for client in clients:
+                client_model = NCFModel(self.user_num, self.item_num).to(Config.device)
+                client_model.load_state_dict(client.model_state_dict)
                 for data, label in total_dataloader:
                     data = data.to(Config.device)
-                    pred = client.model(data)
+                    pred = client_model(data)
                     distill_batch = torch.cat((distill_batch, data), 0)
                     distill_logits = torch.cat((distill_logits, pred.detach()), 0)
             distill_batch = distill_batch.cpu()
