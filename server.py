@@ -131,7 +131,7 @@ class Server:
             hit, ndcg = evaluate(self.model, self.test_data)
             self.logger.log_distill_result(rnd, 0, hit, ndcg)
             # evaluate model
-            if rnd % Config.eval_every == 0:
+            if rnd < 10 or rnd % Config.eval_every == 0:
                 tqdm.write("Round: %d, Time: %.1fs, Loss: %.4f, distill_loss: %.4f, Hit: %.4f, NDCG: %.4f" % (
                     rnd, time.time() - t, loss, distill_loss, hit, ndcg))
                 t = time.time()
