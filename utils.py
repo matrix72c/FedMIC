@@ -21,7 +21,7 @@ class Config:
     epochs = 5
     local_loss_threshold = 1e-5
     device = None
-    rounds = 40000
+    rounds = 99999
     top_k = 10
     sample_size = 10
     model = "NeuMF"
