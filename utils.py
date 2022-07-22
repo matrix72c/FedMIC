@@ -181,6 +181,7 @@ class Logger:
         dict_ = dict(Config.__dict__)
         dict_.pop("__dict__")
         dict_.pop("__weakref__")
+        dict_.pop("device")
         json.dump(dict_, open(Config.result_path + "config.json", "w"))
 
     def log_client_loss(self, client_id, local_epoch, loss):
