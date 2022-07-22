@@ -192,6 +192,6 @@ class Logger:
 
     def log_distill_result(self, rnd, distill_loss, hr, hdcg):
         self.server_df.loc[len(self.server_df)] = [rnd, distill_loss, hr, hdcg]
-        if self.server_df.shape[0] % 100 == 0:
+        if self.server_df.shape[0] % Config.eval_every == 0:
             self.server_df.to_csv(Config.result_path+"server.csv", index=False, header=False, mode='a')
             self.server_df.drop(self.server_df.index, inplace=True)
