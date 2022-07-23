@@ -76,54 +76,54 @@ class Client:
         assert self.model_state_dict is not None
         model.load_state_dict(self.model_state_dict)
 
-        num_positive = int(Config.distill_batch_size * Config.distill_pos_ratio)
-        if num_positive < len(self.pos_data):
-            positive_data = random.sample(self.pos_data, num_positive)
-        else:
-            positive_data = self.pos_data
-        if Config.distill_batch_size - len(positive_data) < len(self.neg_data):
-            negative_data = random.sample(self.neg_data, Config.distill_batch_size - len(positive_data))
-        else:
-            negative_data = self.neg_data
-        positive_data.extend(negative_data)
-        client_batch = torch.tensor(positive_data)
-
-        dataset = NCFDataset(client_batch, [1. for _ in range(self.item_num)])
-        dataloader = Data.DataLoader(dataset, batch_size=Config.batch_size, shuffle=False)
-        logits = []
-        for data, label in dataloader:
-            data = data.to(Config.device)
-            pred = model(data)
-            logits.extend(pred.detach().cpu().numpy())
-        client_logits = torch.tensor(logits)
-
-        # # predict all items
-        # total_data = torch.tensor([[self.client_id, i] for i in range(self.item_num)])
-        # total_logits = []
-        # total_dataset = NCFDataset(total_data, [1. for _ in range(self.item_num)])
-        # total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
-        # for data, label in total_dataloader:
+        # num_positive = int(Config.distill_batch_size * Config.distill_pos_ratio)
+        # if num_positive < len(self.pos_data):
+        #     positive_data = random.sample(self.pos_data, num_positive)
+        # else:
+        #     positive_data = self.pos_data
+        # if Config.distill_batch_size - len(positive_data) < len(self.neg_data):
+        #     negative_data = random.sample(self.neg_data, Config.distill_batch_size - len(positive_data))
+        # else:
+        #     negative_data = self.neg_data
+        # positive_data.extend(negative_data)
+        # client_batch = torch.tensor(positive_data)
+        #
+        # dataset = NCFDataset(client_batch, [1. for _ in range(self.item_num)])
+        # dataloader = Data.DataLoader(dataset, batch_size=Config.batch_size, shuffle=False)
+        # logits = []
+        # for data, label in dataloader:
         #     data = data.to(Config.device)
         #     pred = model(data)
-        #     total_logits.extend(pred.detach().cpu().numpy())
-        # total_logits = torch.tensor(total_logits)
-        #
-        # # get positive items
-        # num_positive = int(Config.distill_batch_size * Config.distill_pos_ratio)
-        # _, indices = torch.topk(total_logits, num_positive)
-        # positive_data = total_data[indices]
-        # positive_logits = total_logits[indices]
-        #
-        # # get the rest of items
-        # total_data = torch_delete(total_data, indices)
-        # total_logits = torch_delete(total_logits, indices)
-        #
-        # # get neg items id and corresponding logits
-        # neg_samples = torch.randint(0, len(total_data), (Config.distill_batch_size - num_positive,))
-        # negative_data = total_data[neg_samples]
-        # negative_logits = total_logits[neg_samples]
-        #
-        # # concat positive and negative samples
-        # client_batch = torch.cat([positive_data, negative_data], dim=0)
-        # client_logits = torch.cat([positive_logits, negative_logits], dim=0)
+        #     logits.extend(pred.detach().cpu().numpy())
+        # client_logits = torch.tensor(logits)
+
+        # predict all items
+        total_data = torch.tensor([[self.client_id, i] for i in range(self.item_num)])
+        total_logits = []
+        total_dataset = NCFDataset(total_data, [1. for _ in range(self.item_num)])
+        total_dataloader = Data.DataLoader(total_dataset, batch_size=Config.batch_size, shuffle=False)
+        for data, label in total_dataloader:
+            data = data.to(Config.device)
+            pred = model(data)
+            total_logits.extend(pred.detach().cpu().numpy())
+        total_logits = torch.tensor(total_logits)
+
+        # get positive items
+        num_positive = int(Config.distill_batch_size * Config.distill_pos_ratio)
+        _, indices = torch.topk(total_logits, num_positive)
+        positive_data = total_data[indices]
+        positive_logits = total_logits[indices]
+
+        # get the rest of items
+        total_data = torch_delete(total_data, indices)
+        total_logits = torch_delete(total_logits, indices)
+
+        # get neg items id and corresponding logits
+        neg_samples = torch.randint(0, len(total_data), (Config.distill_batch_size - num_positive,))
+        negative_data = total_data[neg_samples]
+        negative_logits = total_logits[neg_samples]
+
+        # concat positive and negative samples
+        client_batch = torch.cat([positive_data, negative_data], dim=0)
+        client_logits = torch.cat([positive_logits, negative_logits], dim=0)
         return client_batch, client_logits
